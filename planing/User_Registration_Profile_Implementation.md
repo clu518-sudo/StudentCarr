@@ -38,20 +38,27 @@
   - Profile CRUD operations
   - Authentication token validation
   - Rate limiting and throttling
+  - Integration with containerized backend services
 
 #### Compute Layer
-- **AWS Lambda Functions**: Serverless business logic
-  - Registration handler
-  - Profile creation handler
-  - Profile update handler
-  - Profile retrieval handler
-  - Data validation functions
+- **Amazon ECS (Elastic Container Service) with Fargate**: Container orchestration
+  - Registration service container
+  - Profile service container
+  - Email service container
+  - Authentication service container
+  - Auto-scaling based on demand
+  - Load balancing across container instances
+- **Amazon ECR (Elastic Container Registry)**: Docker image storage
+  - Store and version control Docker images
+  - Image scanning for vulnerabilities
+  - Image lifecycle policies
 
 #### Database Layer
 - **Amazon RDS (PostgreSQL)**: Primary user profile storage
   - User profiles table
   - User preferences table
   - User activity logs table
+  - Connection pooling for container services
 - **Amazon DynamoDB**: Session and temporary data
   - Registration tokens
   - Email verification codes
@@ -74,6 +81,16 @@
   - User session data
   - Frequently accessed profiles
   - Rate limiting counters
+
+#### Container Networking
+- **AWS VPC**: Isolated network environment
+  - Private subnets for containers
+  - Public subnets for load balancers
+  - Security groups for service isolation
+- **Application Load Balancer (ALB)**: Traffic distribution
+  - Route requests to container services
+  - Health checks for containers
+  - SSL/TLS termination
 
 ### 2.2 Frontend Architecture
 
@@ -225,10 +242,22 @@
 - Set token scopes
 - Configure refresh token settings
 
-### 4.2 Phase 2: Lambda Function Development
+### 4.2 Phase 2: Microservices Development and Containerization
 
-#### Step 1: Registration Handler Lambda
-- **Trigger**: API Gateway POST request to /register
+#### Step 1: Project Structure Setup
+- Create microservices directory structure
+  - `services/registration-service/`
+  - `services/profile-service/`
+  - `services/email-service/`
+  - `services/auth-service/`
+- Set up shared libraries/common code
+- Configure Docker Compose for local development
+- Set up service-to-service communication patterns
+
+#### Step 2: Registration Service Container
+- **Service**: Registration microservice
+- **Docker Image**: `registration-service:latest`
+- **Technology Stack**: Node.js/Python/Go (choose based on team expertise)
 - **Process Flow**:
   1. Receive registration request with email, password, and basic info
   2. Validate input data (email format, password strength, required fields)
@@ -236,17 +265,30 @@
   4. Create user in Cognito User Pool
   5. Generate email verification token
   6. Store temporary registration data in DynamoDB
-  7. Send verification email via SES
+  7. Publish event to email service queue
   8. Return success response with user ID
+- **Dockerfile Configuration**:
+  - Base image (e.g., `node:18-alpine` or `python:3.11-slim`)
+  - Install dependencies
+  - Copy application code
+  - Expose service port (e.g., 8080)
+  - Set health check endpoint
+  - Configure non-root user
+- **Environment Variables**:
+  - Cognito User Pool ID
+  - DynamoDB table names
+  - AWS region
+  - Service port
 - **Error Handling**:
   - Invalid email format
   - Weak password
   - Email already registered
   - Cognito service errors
-  - SES delivery failures
+  - Database connection errors
 
-#### Step 2: Email Verification Handler Lambda
-- **Trigger**: API Gateway POST request to /verify-email
+#### Step 3: Email Verification Service Container
+- **Service**: Email verification microservice
+- **Docker Image**: `email-verification-service:latest`
 - **Process Flow**:
   1. Receive verification token from request
   2. Validate token in DynamoDB (check expiration, used status)
@@ -254,18 +296,24 @@
   4. Mark email as verified in Cognito
   5. Update DynamoDB token status to "used"
   6. Create initial user profile record in RDS
-  7. Send welcome email via SES
+  7. Publish event to email service for welcome email
   8. Return success response
+- **Dockerfile Configuration**: Similar to registration service
 - **Error Handling**:
   - Invalid or expired token
   - Token already used
   - Cognito verification failure
   - Database insertion errors
 
-#### Step 3: Profile Creation Handler Lambda
-- **Trigger**: API Gateway POST request to /profile
-- **Authentication**: Cognito JWT token validation
-- **Process Flow**:
+#### Step 4: Profile Service Container
+- **Service**: Profile management microservice
+- **Docker Image**: `profile-service:latest`
+- **Endpoints**:
+  - POST /profile - Create profile
+  - GET /profile/{userId} - Retrieve profile
+  - PUT /profile/{userId} - Update profile
+  - DELETE /profile/{userId} - Delete profile
+- **Process Flow (Create)**:
   1. Validate JWT token from request header
   2. Extract user ID from token
   3. Validate profile data against schema
@@ -276,17 +324,7 @@
   8. Log activity in activity logs table
   9. Invalidate user profile cache in Redis
   10. Return created profile data
-- **Error Handling**:
-  - Invalid or expired JWT token
-  - Missing required fields
-  - Invalid data format
-  - Database constraint violations
-  - S3 upload failures
-
-#### Step 4: Profile Update Handler Lambda
-- **Trigger**: API Gateway PUT request to /profile/{userId}
-- **Authentication**: Cognito JWT token validation
-- **Process Flow**:
+- **Process Flow (Update)**:
   1. Validate JWT token and user authorization
   2. Verify user owns the profile being updated
   3. Validate updated data
@@ -298,16 +336,7 @@
   9. Log update activity
   10. Invalidate cache
   11. Return updated profile
-- **Error Handling**:
-  - Unauthorized access attempts
-  - Version conflict (concurrent updates)
-  - Invalid data
-  - Database update failures
-
-#### Step 5: Profile Retrieval Handler Lambda
-- **Trigger**: API Gateway GET request to /profile/{userId}
-- **Authentication**: Cognito JWT token validation (optional for public profiles)
-- **Process Flow**:
+- **Process Flow (Retrieve)**:
   1. Check Redis cache for profile data
   2. If cached, return cached data
   3. If not cached, query RDS database
@@ -315,27 +344,117 @@
   5. Format response based on requester (self vs. other)
   6. Cache result in Redis with TTL
   7. Return profile data
+- **Dockerfile Configuration**: Include image processing libraries if needed
 - **Error Handling**:
-  - Profile not found
-  - Access denied due to privacy settings
-  - Database query errors
+  - Invalid or expired JWT token
+  - Missing required fields
+  - Invalid data format
+  - Database constraint violations
+  - S3 upload failures
+  - Unauthorized access attempts
+  - Version conflict (concurrent updates)
 
-#### Step 6: Password Reset Handler Lambda
-- **Trigger**: API Gateway POST request to /password-reset
+#### Step 5: Email Service Container
+- **Service**: Email sending microservice
+- **Docker Image**: `email-service:latest`
+- **Process Flow**:
+  1. Listen to email queue/events
+  2. Retrieve email template from S3 or template storage
+  3. Render email template with user data
+  4. Send email via SES
+  5. Log email delivery status
+  6. Handle bounce and complaint notifications
+- **Dockerfile Configuration**: Include template rendering libraries
+- **Error Handling**:
+  - SES delivery failures
+  - Template rendering errors
+  - Invalid email addresses
+
+#### Step 6: Password Reset Service Container
+- **Service**: Password reset microservice
+- **Docker Image**: `password-reset-service:latest`
 - **Process Flow**:
   1. Receive email address
   2. Validate email format
   3. Check if user exists in Cognito
   4. Generate password reset token
   5. Store token in DynamoDB with expiration
-  6. Send password reset email via SES
+  6. Publish event to email service
   7. Return success response
 - **Error Handling**:
   - Invalid email
   - User not found
   - Email delivery failure
 
-### 4.3 Phase 3: API Gateway Configuration
+#### Step 7: Docker Image Build and Optimization
+- Create optimized Dockerfiles for each service
+- Use multi-stage builds to reduce image size
+- Implement .dockerignore files
+- Set up build scripts for all services
+- Configure image tagging strategy (version, latest, branch)
+- Test images locally using Docker Compose
+
+### 4.3 Phase 3: Container Registry and Image Management
+
+#### Step 1: Amazon ECR Setup
+- Create ECR repositories for each service
+  - `studentcarr/registration-service`
+  - `studentcarr/profile-service`
+  - `studentcarr/email-service`
+  - `studentcarr/email-verification-service`
+  - `studentcarr/password-reset-service`
+- Configure repository policies
+- Set up image scanning for vulnerabilities
+- Configure image lifecycle policies (retain last N images)
+
+#### Step 2: Build and Push Docker Images
+- Authenticate Docker with ECR
+- Build Docker images for each service
+- Tag images with version numbers
+- Push images to ECR repositories
+- Set up automated builds via CI/CD
+
+### 4.4 Phase 4: ECS Cluster and Service Configuration
+
+#### Step 1: ECS Cluster Setup
+- Create ECS cluster (Fargate launch type recommended)
+- Configure cluster capacity providers
+- Set up cluster auto-scaling
+- Configure cluster logging to CloudWatch
+
+#### Step 2: Task Definition Creation
+- Create task definition for each service
+  - Container image from ECR
+  - CPU and memory allocation
+  - Environment variables
+  - Secrets management (AWS Secrets Manager)
+  - Logging configuration (CloudWatch Logs)
+  - Health check configuration
+  - Network mode and port mappings
+- Configure task role and execution role
+- Set up task-level IAM permissions
+
+#### Step 3: ECS Service Creation
+- Create ECS service for each microservice
+- Configure service auto-scaling
+  - Target tracking scaling policies
+  - Minimum and maximum task counts
+  - CPU and memory utilization targets
+- Set up service discovery (optional)
+- Configure deployment configuration
+  - Rolling update strategy
+  - Health check grace period
+  - Deployment circuit breaker
+
+#### Step 4: Load Balancer Configuration
+- Create Application Load Balancer (ALB)
+- Configure target groups for each service
+- Set up health checks
+- Configure SSL/TLS certificates (ACM)
+- Set up listener rules for routing
+- Configure sticky sessions if needed
+
+### 4.5 Phase 5: API Gateway Integration with Containers
 
 #### Step 1: Create REST API
 - Define API name and description
@@ -343,38 +462,44 @@
 - Set up API stages (dev, staging, prod)
 
 #### Step 2: Create API Resources and Methods
-- POST /register → Registration Lambda
-- POST /verify-email → Email Verification Lambda
+- POST /register → ALB target group (registration-service)
+- POST /verify-email → ALB target group (email-verification-service)
 - POST /login → Cognito authentication (direct integration)
-- POST /password-reset → Password Reset Lambda
-- GET /profile/{userId} → Profile Retrieval Lambda
-- POST /profile → Profile Creation Lambda
-- PUT /profile/{userId} → Profile Update Lambda
-- DELETE /profile/{userId} → Profile Deletion Lambda
+- POST /password-reset → ALB target group (password-reset-service)
+- GET /profile/{userId} → ALB target group (profile-service)
+- POST /profile → ALB target group (profile-service)
+- PUT /profile/{userId} → ALB target group (profile-service)
+- DELETE /profile/{userId} → ALB target group (profile-service)
 
-#### Step 3: Configure Request/Response Integration
-- Set up Lambda proxy integration
+#### Step 3: Configure VPC Link
+- Create VPC Link for private integration
+- Connect API Gateway to ALB in private subnet
+- Configure security groups
+
+#### Step 4: Configure Request/Response Integration
+- Set up HTTP proxy integration with ALB
 - Configure request mapping templates
 - Configure response mapping templates
 - Set up error responses
 
-#### Step 4: Set Up Authorization
+#### Step 5: Set Up Authorization
 - Configure Cognito authorizer for protected endpoints
 - Set up API keys for rate limiting
 - Configure usage plans
 
-#### Step 5: Enable Request Validation
+#### Step 6: Enable Request Validation
 - Define request schemas
 - Configure validation rules
 - Set up error responses for invalid requests
 
-### 4.4 Phase 4: Database Setup
+### 4.6 Phase 6: Database Setup
 
 #### Step 1: RDS PostgreSQL Setup
 - Create RDS instance (or use RDS Proxy for connection pooling)
-- Configure security groups
+- Configure security groups (allow access from ECS tasks)
 - Set up automated backups
 - Configure read replicas (for scalability)
+- Enable connection pooling for container services
 
 #### Step 2: Database Schema Creation
 - Create user_profiles table with all defined fields
@@ -391,12 +516,12 @@
 
 #### Step 4: S3 Bucket Setup
 - Create S3 bucket for user uploads
-- Configure bucket policies for secure access
+- Configure bucket policies for secure access from ECS tasks
 - Set up CORS configuration
 - Enable versioning
 - Configure lifecycle policies for old files
 
-### 4.5 Phase 5: Email Service Configuration
+### 4.7 Phase 7: Email Service Configuration
 
 #### Step 1: Amazon SES Setup
 - Verify sender email domain
@@ -409,10 +534,10 @@
 - Design welcome email template
 - Design password reset email template
 - Create HTML and plain text versions
-- Store templates in S3 or use SES template feature
+- Store templates in S3 or include in email-service container
 
-#### Step 3: Lambda Function for Email Sending
-- Create SES email sending Lambda
+#### Step 3: Email Service Integration
+- Configure email service container to use SES
 - Integrate with email templates
 - Handle email delivery status
 - Log email sending activities
@@ -737,34 +862,167 @@
 
 ### 9.1 Infrastructure as Code
 - Use AWS CDK or Terraform for infrastructure
-- Define all AWS resources in code
+- Define all AWS resources in code:
+  - ECS clusters and services
+  - ECR repositories
+  - ALB and target groups
+  - VPC and networking
+  - RDS instances
+  - DynamoDB tables
+  - S3 buckets
+  - API Gateway
+  - Cognito User Pools
 - Version control infrastructure code
 - Enable infrastructure updates via CI/CD
 
-### 9.2 CI/CD Pipeline Setup
-- Set up GitHub Actions or AWS CodePipeline
-- Configure automated testing
-- Set up deployment stages (dev, staging, prod)
-- Implement automated rollback on failure
+### 9.2 Docker Image Build and Push Pipeline
 
-### 9.3 Environment Configuration
+#### Step 1: Build Pipeline Configuration
+- Set up build automation (GitHub Actions, GitLab CI, or AWS CodeBuild)
+- Configure build triggers (on code push, PR merge)
+- Set up build stages:
+  1. Code checkout
+  2. Run unit tests
+  3. Build Docker images
+  4. Run security scans on images
+  5. Tag images with version and commit SHA
+  6. Push images to ECR
+
+#### Step 2: Image Security Scanning
+- Integrate vulnerability scanning in build pipeline
+- Use ECR image scanning or third-party tools (Trivy, Snyk)
+- Block deployment if critical vulnerabilities found
+- Generate security reports
+
+#### Step 3: Image Versioning Strategy
+- Use semantic versioning (major.minor.patch)
+- Tag images with:
+  - Version number (e.g., `v1.2.3`)
+  - Git commit SHA (e.g., `abc1234`)
+  - Branch name for dev builds (e.g., `dev-latest`)
+  - `latest` tag for production
+
+### 9.3 CI/CD Pipeline Setup
+
+#### Step 1: Pipeline Configuration
+- Set up GitHub Actions or AWS CodePipeline
+- Configure pipeline stages:
+  1. **Source**: Code repository
+  2. **Build**: Build and test Docker images
+  3. **Test**: Run integration tests
+  4. **Deploy Dev**: Deploy to dev environment
+  5. **Deploy Staging**: Deploy to staging (manual approval)
+  6. **Deploy Prod**: Deploy to production (manual approval)
+
+#### Step 2: Automated Testing
+- Run unit tests in build stage
+- Run integration tests with test containers
+- Run security scans
+- Run performance tests (optional)
+
+#### Step 3: Deployment Automation
+- Update ECS task definitions with new image tags
+- Deploy new task definitions to ECS services
+- Monitor deployment health
+- Implement automated rollback on failure
+- Use blue/green or canary deployment strategies
+
+#### Step 4: Deployment Strategies
+- **Rolling Update**: Gradually replace old tasks with new ones
+- **Blue/Green**: Deploy new version alongside old, then switch traffic
+- **Canary**: Deploy to small percentage, monitor, then full rollout
+- Configure deployment circuit breaker for automatic rollback
+
+### 9.4 Environment Configuration
+
+#### Step 1: Environment Setup
 - Set up separate environments (dev, staging, prod)
-- Configure environment-specific variables
+- Create separate ECS clusters per environment (or use namespaces)
+- Configure environment-specific ECR repositories or tags
 - Set up separate Cognito user pools per environment
 - Configure environment-specific database instances
 
-### 9.4 Database Migrations
+#### Step 2: Environment Variables and Secrets
+- Use AWS Systems Manager Parameter Store for configuration
+- Use AWS Secrets Manager for sensitive data:
+  - Database credentials
+  - API keys
+  - JWT secrets
+- Configure ECS task definitions to pull from Parameter Store/Secrets Manager
+- Use different parameter/secrets per environment
+
+#### Step 3: Network Configuration
+- Set up VPC per environment (or use VPC isolation)
+- Configure security groups per environment
+- Set up private subnets for ECS tasks
+- Configure NAT Gateway for outbound internet access
+
+### 9.5 Database Migrations
+
+#### Step 1: Migration Strategy
 - Create migration scripts for schema changes
-- Test migrations in dev environment
+- Package migrations in a separate container or include in service containers
+- Use migration tools (Flyway, Liquibase, Alembic, etc.)
+- Test migrations in dev environment first
+
+#### Step 2: Migration Execution
+- Run migrations as part of deployment pipeline
+- Or use a dedicated migration job/task
 - Implement rollback procedures
 - Document migration process
+- Version control migration scripts
 
-### 9.5 Monitoring and Logging
-- Set up CloudWatch for Lambda logs
-- Configure CloudWatch alarms
-- Set up API Gateway logging
-- Implement application performance monitoring
-- Set up error tracking and alerting
+### 9.6 Monitoring and Logging
+
+#### Step 1: Container Logging
+- Configure CloudWatch Logs for each service
+- Set up log groups per service and environment
+- Configure log retention policies
+- Implement structured logging (JSON format)
+- Set up log aggregation and search
+
+#### Step 2: Application Monitoring
+- Set up CloudWatch Container Insights for ECS
+- Monitor container metrics:
+  - CPU and memory utilization
+  - Task count and health
+  - Request count and latency
+- Configure CloudWatch alarms for:
+  - High error rates
+  - High latency
+  - Container failures
+  - Resource exhaustion
+
+#### Step 3: Distributed Tracing
+- Implement distributed tracing (AWS X-Ray or Jaeger)
+- Trace requests across microservices
+- Identify performance bottlenecks
+- Monitor service dependencies
+
+#### Step 4: Error Tracking
+- Integrate error tracking (Sentry, Rollbar)
+- Set up alerts for critical errors
+- Track error trends and patterns
+
+### 9.7 Health Checks and Auto-Recovery
+
+#### Step 1: Container Health Checks
+- Configure health check endpoints for each service
+- Set up ECS health checks
+- Configure health check grace period
+- Implement readiness and liveness probes
+
+#### Step 2: Auto-Scaling Configuration
+- Configure target tracking auto-scaling
+- Set CPU and memory utilization targets
+- Configure minimum and maximum task counts
+- Set up scheduled scaling for predictable traffic
+
+#### Step 3: Auto-Recovery
+- Configure ECS service auto-recovery
+- Set up automatic task replacement on failure
+- Configure deployment circuit breaker
+- Implement retry logic in services
 
 ---
 
