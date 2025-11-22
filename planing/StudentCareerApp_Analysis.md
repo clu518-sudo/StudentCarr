@@ -22,10 +22,12 @@ A comprehensive career guidance platform that helps students transition from aca
 ### Core Functional Requirements
 - **Profile Management:** Comprehensive student profile creation and maintenance
 - **Job Discovery:** Intelligent job search and recommendation engine
-- **Skill Gap Analysis:** AI-powered comparison between student skills and job requirements
-- **Learning Path Generation:** Personalized study plans and skill development roadmaps
-- **Resume/CV Builder:** Dynamic resume generation tailored to specific positions
-- **Application Automation:** Streamlined job application process with auto-fill capabilities
+- **Skill Management**
+   - **Skill Gap Analysis:** AI-powered comparison between student skills and job requirements
+   - **Learning Path Generation:** Personalized study plans and skill development roadmaps
+- **Application Managment**
+   - **Resume/CV Builder:** Dynamic resume generation tailored to specific positions
+   - **Application Automation:** Streamlined job application process with auto-fill capabilities
 - **Progress Tracking:** Career development milestone tracking and analytics
 
 ### Key User Experience Expectations
