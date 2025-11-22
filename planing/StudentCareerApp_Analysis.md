@@ -303,10 +303,13 @@ A comprehensive career guidance platform that helps students transition from aca
 
 ### MVP Features (Phase 1 - 3 months)
 1. **User Registration & Profile Creation**
-2. **Basic Job Search & Filtering**
-3. **Simple Skill Gap Analysis**
-4. **Basic Resume Builder**
-5. **Manual Job Application Tracking**
+2. **Career Direction Recommendation**
+3. **Basic Job Search & Filtering**
+4. **Simple Skill Gap Analysis & study plane**
+5. **Basic Resume/CV Builder**
+6. **Manual Job Application Tracking**
+7. **IAI Interview Assistant**
+
 
 ### Phased Development Roadmap
 

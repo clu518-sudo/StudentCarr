@@ -91,9 +91,71 @@ src/
    npm start
    ```
 
-3. **Access the Application**
-   - Open [http://localhost:3000](http://localhost:3000)
+3. **Build for Production**
+   ```bash
+   npm run build
+   ```
+   - Creates an optimized production build in the `build/` folder
+   - Minifies JavaScript and CSS files
+   - Optimizes assets for best performance
+   - Ready to deploy to any static hosting service
+
+4. **Access the Application**
+   - Development: Open [http://localhost:3000](http://localhost:3000)
+   - Production: Serve the `build/` folder using a web server
    - Use any email and password (minimum 6 characters) to login
+
+## 🔨 Build Commands
+
+### Development
+```bash
+npm start
+```
+- Starts the development server with hot-reload
+- Runs on http://localhost:3000
+- Includes source maps and error overlays
+
+### Production Build
+```bash
+npm run build
+```
+- Creates optimized production build in `build/` directory
+- Minifies and bundles all JavaScript and CSS
+- Optimizes images and assets
+- Generates source maps for debugging
+- Build output is ready for deployment
+
+### Testing
+```bash
+npm test
+```
+- Runs the test suite in watch mode
+- Uses Jest and React Testing Library
+
+### Build Output
+After running `npm run build`, you'll find:
+```
+build/
+├── asset-manifest.json    # Asset mapping file
+├── index.html            # Main HTML file
+└── static/
+    ├── css/              # Minified CSS files
+    └── js/               # Minified JavaScript bundles
+```
+
+### Serving the Production Build Locally
+To test the production build locally:
+```bash
+# Install a simple HTTP server (if not already installed)
+npm install -g serve
+
+# Serve the build folder
+serve -s build
+
+# Or use Python's built-in server
+cd build
+python -m http.server 8000
+```
 
 ## 🔐 Demo Credentials
 

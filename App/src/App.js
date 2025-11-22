@@ -13,6 +13,7 @@ import LearningPathView from './components/skills/LearningPathView';
 import ApplicationManagementView from './components/applications/ApplicationManagementView';
 import ResumeBuilderView from './components/applications/ResumeBuilderView';
 import ApplicationAutomationView from './components/applications/ApplicationAutomationView';
+import AIInterviewAssistantView from './components/interview/AIInterviewAssistantView';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
 function App() {
@@ -41,6 +42,9 @@ function App() {
               <Route path="applications" element={<ApplicationManagementView />} />
               <Route path="applications/resume-builder" element={<ResumeBuilderView />} />
               <Route path="applications/automation" element={<ApplicationAutomationView />} />
+              
+              {/* AI Interview Assistant */}
+              <Route path="interview" element={<AIInterviewAssistantView />} />
             </Route>
             
             {/* Catch all route */}
