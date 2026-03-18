@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import LoginView from './components/auth/LoginView';
+import SignupView from './components/auth/SignupView';
 import DashboardLayout from './components/layout/DashboardLayout';
 import DashboardView from './components/dashboard/DashboardView';
 import ProfileView from './components/profile/ProfileView';
@@ -24,6 +25,7 @@ function App() {
           <Routes>
             {/* Public Routes */}
             <Route path="/login" element={<LoginView />} />
+            <Route path="/signup" element={<SignupView />} />
             
             {/* Protected Routes */}
             <Route path="/" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>

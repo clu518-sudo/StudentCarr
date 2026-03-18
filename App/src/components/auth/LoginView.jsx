@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLogin } from '../../hooks/useLogin';
 
@@ -92,7 +92,10 @@ const LoginView = () => {
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
-              Demo credentials: Any email and password (min 6 chars)
+              No account yet?{' '}
+              <Link to="/signup" className="text-primary-600 hover:text-primary-700 font-medium">
+                Create one
+              </Link>
             </p>
           </div>
         </div>

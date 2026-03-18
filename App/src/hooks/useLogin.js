@@ -39,8 +39,8 @@ export const useLogin = () => {
     
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+    } else if (formData.password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters';
     }
     
     setErrors(newErrors);
@@ -59,7 +59,18 @@ export const useLogin = () => {
     if (result.success) {
       navigate('/dashboard');
     } else {
-      setErrors({ general: result.error || 'Login failed' });
+      const message = result.error || 'Login failed';
+      const nextErrors = { general: message };
+
+      if (message.toLowerCase().includes('email')) {
+        nextErrors.email = message;
+      }
+
+      if (message.toLowerCase().includes('password')) {
+        nextErrors.password = message;
+      }
+
+      setErrors(nextErrors);
     }
   };
 

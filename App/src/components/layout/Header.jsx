@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 
 const Header = () => {
   const { user, logout } = useAuth();
+  const displayName = user?.name || user?.fullName || user?.email || "User";
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200">
@@ -18,11 +19,11 @@ const Header = () => {
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center">
                 <span className="text-white text-sm font-medium">
-                  {user?.name?.charAt(0) || 'U'}
+                  {displayName.charAt(0).toUpperCase()}
                 </span>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                <p className="text-sm font-medium text-gray-900">{displayName}</p>
                 <p className="text-xs text-gray-500">{user?.email}</p>
               </div>
             </div>
