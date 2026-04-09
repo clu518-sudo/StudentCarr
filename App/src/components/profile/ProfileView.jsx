@@ -101,6 +101,8 @@ const profileActionButtonClass =
   'inline-flex items-center justify-center rounded-lg border border-primary-200 bg-primary-50 px-4 py-2 text-sm font-medium text-primary-700 transition-colors duration-200 hover:bg-primary-100';
 const profileDangerButtonClass =
   'inline-flex items-center justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 transition-colors duration-200 hover:bg-red-100';
+const profileDisabledButtonClass =
+  'inline-flex items-center justify-center rounded-lg border border-gray-200 bg-gray-100 px-4 py-2 text-sm font-medium text-gray-400 cursor-not-allowed';
 
 const ProfileView = () => {
   const { accessToken } = useAuth();
@@ -338,6 +340,11 @@ const ProfileView = () => {
     }
   };
 
+  const handleGenerateSection = (sectionName) => {
+    setError('');
+    setSuccessMessage(`${sectionName} AI generate will be added in backend next step.`);
+  };
+
   if (loading) {
     return (
       <div className="card">
@@ -350,6 +357,12 @@ const ProfileView = () => {
     acc[type] = documents.filter((document) => document.documentType === type);
     return acc;
   }, {});
+  const canGenerateEducation = Boolean(documentsByType.Transcript?.length);
+  const canGenerateWorkExperience = Boolean(
+    documentsByType['Working History & Related Project Description']?.length,
+  );
+  const canGenerateProjects = Boolean(documentsByType.Project?.length);
+  const canGenerateCertifications = Boolean(documentsByType.Certification?.length);
 
   return (
     <div className="space-y-6">
@@ -516,13 +529,24 @@ const ProfileView = () => {
             <section>
               <div className="flex items-center justify-between mb-4">
                 <h2 className={sectionTitleClass}>Education</h2>
-                <button
-                  type="button"
-                  className={profileActionButtonClass}
-                  onClick={() => addArrayItem('education', emptyEducation)}
-                >
-                  Add Education
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className={canGenerateEducation ? profileActionButtonClass : profileDisabledButtonClass}
+                    title="Ai generate according upload file"
+                    disabled={!canGenerateEducation}
+                    onClick={() => handleGenerateSection('Education')}
+                  >
+                    Generate
+                  </button>
+                  <button
+                    type="button"
+                    className={profileActionButtonClass}
+                    onClick={() => addArrayItem('education', emptyEducation)}
+                  >
+                    Add Education
+                  </button>
+                </div>
               </div>
               <div className="space-y-4">
                 {manualProfile.education.map((item, index) => (
@@ -553,13 +577,26 @@ const ProfileView = () => {
             <section>
               <div className="flex items-center justify-between mb-4">
                 <h2 className={sectionTitleClass}>Work Experience</h2>
-                <button
-                  type="button"
-                  className={profileActionButtonClass}
-                  onClick={() => addArrayItem('workExperience', emptyWork)}
-                >
-                  Add Work Experience
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className={
+                      canGenerateWorkExperience ? profileActionButtonClass : profileDisabledButtonClass
+                    }
+                    title="Ai generate according upload file"
+                    disabled={!canGenerateWorkExperience}
+                    onClick={() => handleGenerateSection('Work Experience')}
+                  >
+                    Generate
+                  </button>
+                  <button
+                    type="button"
+                    className={profileActionButtonClass}
+                    onClick={() => addArrayItem('workExperience', emptyWork)}
+                  >
+                    Add Work Experience
+                  </button>
+                </div>
               </div>
               <div className="space-y-4">
                 {manualProfile.workExperience.map((item, index) => (
@@ -597,13 +634,24 @@ const ProfileView = () => {
             <section>
               <div className="flex items-center justify-between mb-4">
                 <h2 className={sectionTitleClass}>Projects</h2>
-                <button
-                  type="button"
-                  className={profileActionButtonClass}
-                  onClick={() => addArrayItem('projects', emptyProject)}
-                >
-                  Add Project
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className={canGenerateProjects ? profileActionButtonClass : profileDisabledButtonClass}
+                    title="Ai generate according upload file"
+                    disabled={!canGenerateProjects}
+                    onClick={() => handleGenerateSection('Projects')}
+                  >
+                    Generate
+                  </button>
+                  <button
+                    type="button"
+                    className={profileActionButtonClass}
+                    onClick={() => addArrayItem('projects', emptyProject)}
+                  >
+                    Add Project
+                  </button>
+                </div>
               </div>
               <div className="space-y-4">
                 {manualProfile.projects.map((item, index) => (
@@ -676,13 +724,26 @@ const ProfileView = () => {
             <section>
               <div className="flex items-center justify-between mb-4">
                 <h2 className={sectionTitleClass}>Certifications</h2>
-                <button
-                  type="button"
-                  className={profileActionButtonClass}
-                  onClick={() => addArrayItem('certifications', emptyCertification)}
-                >
-                  Add Certification
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className={
+                      canGenerateCertifications ? profileActionButtonClass : profileDisabledButtonClass
+                    }
+                    title="Ai generate according upload file"
+                    disabled={!canGenerateCertifications}
+                    onClick={() => handleGenerateSection('Certifications')}
+                  >
+                    Generate
+                  </button>
+                  <button
+                    type="button"
+                    className={profileActionButtonClass}
+                    onClick={() => addArrayItem('certifications', emptyCertification)}
+                  >
+                    Add Certification
+                  </button>
+                </div>
               </div>
               <div className="space-y-4">
                 {manualProfile.certifications.map((item, index) => (
