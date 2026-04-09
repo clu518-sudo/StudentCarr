@@ -5,6 +5,7 @@ import {
   deleteDocumentParamsSchema,
   uploadDocumentsSchema,
   uploadSingleDocumentSchema,
+  generateManualProfileSchema,
   validate,
 } from "./pm.schemas.js";
 import {
@@ -15,6 +16,7 @@ import {
   uploadSingleDocumentForUser,
   deleteDocumentForUser,
   getDocumentForUser,
+  generateManualProfileForUserDummy,
 } from "./pm.service.js";
 import { maxFileSizeBytes, removeFileSafe } from "./pm.storage.js";
 
@@ -176,6 +178,64 @@ const downloadDocument = async (req, res, next) => {
   }
 };
 
+const sendSseEvent = (res, eventName, payload) => {
+  res.write(`event: ${eventName}\n`);
+  res.write(`data: ${JSON.stringify(payload)}\n\n`);
+};
+
+const generateManualProfileStream = async (req, res, next) => {
+  let streamClosed = false;
+  req.on("close", () => {
+    streamClosed = true;
+  });
+
+  try {
+    const payload = validate(generateManualProfileSchema, req.body || {});
+    const sectionName = payload.sectionName || "Manual Entry";
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    if (typeof res.flushHeaders === "function") {
+      res.flushHeaders();
+    }
+
+    sendSseEvent(res, "started", {
+      message: `${sectionName} generation started.`,
+    });
+
+    const result = await generateManualProfileForUserDummy(req.user.id, (message) => {
+      if (!streamClosed) {
+        sendSseEvent(res, "progress", { message });
+      }
+    });
+
+    if (!streamClosed) {
+      sendSseEvent(res, "completed", {
+        message: "Profile generation completed successfully.",
+        result,
+      });
+      res.end();
+    }
+  } catch (error) {
+    if (!res.headersSent) {
+      if (error.name === "ZodError") {
+        return res
+          .status(400)
+          .json({ success: false, error: formatZodError(error) });
+      }
+      return next(error);
+    }
+
+    if (!streamClosed) {
+      sendSseEvent(res, "error", {
+        error: error.message || "Profile generation failed",
+      });
+      res.end();
+    }
+  }
+};
+
 const handleUploadError = (error, req, res, next) => {
   if (!error) {
     return next();
@@ -207,5 +267,6 @@ export {
   uploadSingleDocument,
   deleteDocument,
   downloadDocument,
+  generateManualProfileStream,
   handleUploadError,
 };

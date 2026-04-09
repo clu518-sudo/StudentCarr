@@ -9,6 +9,7 @@ import {
   getDocuments,
   deleteDocument,
   downloadDocument,
+  generateManualProfileStream,
   handleUploadError,
 } from "./pm.controller.js";
 
@@ -18,6 +19,7 @@ router.use(requireAuth);
 
 router.get("/", getProfile);
 router.put("/manual", updateManualProfile);
+router.post("/manual/generate/stream", generateManualProfileStream);
 router.post(
   "/documents",
   uploadProfileDocuments.array("documents", 10),

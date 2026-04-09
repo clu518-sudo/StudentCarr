@@ -128,6 +128,10 @@ const uploadSingleDocumentSchema = z.object({
   githubUrl: z.string().trim().url("GitHub URL must be valid").optional().or(z.literal("")),
 });
 
+const generateManualProfileSchema = z.object({
+  sectionName: z.string().trim().max(100).optional().or(z.literal("")),
+});
+
 const validate = (schema, payload) => schema.parse(payload);
 
 export {
@@ -136,5 +140,6 @@ export {
   deleteDocumentParamsSchema,
   uploadDocumentsSchema,
   uploadSingleDocumentSchema,
+  generateManualProfileSchema,
   validate,
 };

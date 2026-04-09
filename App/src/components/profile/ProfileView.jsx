@@ -114,6 +114,7 @@ const ProfileView = () => {
   const [savingManual, setSavingManual] = useState(false);
   const [uploadingByType, setUploadingByType] = useState({});
   const [downloadingDocumentId, setDownloadingDocumentId] = useState(null);
+  const [generatingManual, setGeneratingManual] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -358,11 +359,52 @@ const ProfileView = () => {
     }
   };
 
-  const handleGenerateSection = (sectionName) => {
+  const handleGenerateSection = async (sectionName) => {
+    if (!accessToken || generatingManual) {
+      return;
+    }
+
     setError("");
-    setSuccessMessage(
-      `${sectionName} AI generate will be added in backend next step.`,
-    );
+    setSuccessMessage(`${sectionName} generation started...`);
+    setGeneratingManual(true);
+
+    try {
+      await profileManagementApi.generateManualProfileStream(
+        {
+          sectionName,
+          onEvent: (eventName, payload) => {
+            if (eventName === "started" || eventName === "progress") {
+              if (payload?.message) {
+                setSuccessMessage(payload.message);
+              }
+            }
+
+            if (eventName === "completed") {
+              const generatedProfile = payload?.result?.manualProfile;
+              const generatedDocuments = payload?.result?.documents;
+
+              if (generatedProfile) {
+                setManualProfile({
+                  ...emptyProfile,
+                  ...generatedProfile,
+                });
+              }
+              if (Array.isArray(generatedDocuments)) {
+                setDocuments(generatedDocuments);
+              }
+              setSuccessMessage(
+                payload?.message || "Profile generation completed.",
+              );
+            }
+          },
+        },
+        accessToken,
+      );
+    } catch (generationError) {
+      setError(generationError.message || "Profile generation failed");
+    } finally {
+      setGeneratingManual(false);
+    }
   };
 
   if (loading) {
@@ -1239,10 +1281,10 @@ const ProfileView = () => {
                     : profileDisabledButtonClass
                 }
                 title="Ai generate according upload file"
-                disabled={!canGenerateManualProfile}
+                disabled={!canGenerateManualProfile || generatingManual}
                 onClick={() => handleGenerateSection("Manual Entry")}
               >
-                Generate
+                {generatingManual ? "Generating..." : "Generate"}
               </button>
             </div>
           </form>
