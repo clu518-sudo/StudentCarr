@@ -1,4 +1,4 @@
-const { z } = require("zod");
+import { z } from "zod";
 
 const signupSchema = z.object({
   email: z.string().email().max(320),
@@ -13,8 +13,4 @@ const loginSchema = z.object({
 
 const validate = (schema, payload) => schema.parse(payload);
 
-module.exports = {
-  signupSchema,
-  loginSchema,
-  validate,
-};
+export { signupSchema, loginSchema, validate };

@@ -140,3 +140,5 @@ build/
 # Temporary folders
 tmp/
 temp/
+
+.coursor/

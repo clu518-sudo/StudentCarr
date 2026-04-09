@@ -1,4 +1,4 @@
-const env = require("../config/env");
+import env from "../config/env.js";
 
 const refreshCookieOptions = {
   httpOnly: true,
@@ -15,7 +15,4 @@ const clearRefreshCookie = (res) => {
   res.clearCookie(env.refreshCookieName, refreshCookieOptions);
 };
 
-module.exports = {
-  setRefreshCookie,
-  clearRefreshCookie,
-};
+export { setRefreshCookie, clearRefreshCookie };

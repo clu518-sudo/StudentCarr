@@ -1,11 +1,11 @@
-const argon2 = require("argon2");
-const prisma = require("../lib/prisma");
-const { hashValue } = require("../lib/crypto");
-const {
+import argon2 from "argon2";
+import prisma from "../lib/prisma.js";
+import { hashValue } from "../lib/crypto.js";
+import {
   signAccessToken,
   signRefreshToken,
   verifyRefreshToken,
-} = require("../lib/token");
+} from "../lib/token.js";
 
 /*
 collect user-agent info and ip(need to hash)
@@ -26,6 +26,13 @@ const toSafeUser = (user) => ({
   createdAt: user.createdAt,
 });
 
+/*
+  save refresh token into backend database. 
+  function description:
+  when access token expired, the frontend will call /auth/refresh with refresh token.
+   ↓
+  backend verify refresh token saved in database, if pass return new access token.
+*/
 const createSession = async (userId, refreshToken, sessionId, req) => {
   const decoded = verifyRefreshToken(refreshToken);
   const sessionMeta = buildSessionMeta(req);
@@ -42,6 +49,7 @@ const createSession = async (userId, refreshToken, sessionId, req) => {
   });
 };
 
+// Audit the API call
 const writeAudit = async (eventType, userId, metadata) => {
   await prisma.authAuditLog.create({
     data: {
@@ -52,6 +60,7 @@ const writeAudit = async (eventType, userId, metadata) => {
   });
 };
 
+// the service of signup
 const signup = async ({ email, password, fullName }, req) => {
   const normalizedEmail = email.trim().toLowerCase();
   const existing = await prisma.user.findUnique({
@@ -90,6 +99,7 @@ const signup = async ({ email, password, fullName }, req) => {
   };
 };
 
+// the service of login
 const login = async ({ email, password }, req) => {
   const normalizedEmail = email.trim().toLowerCase();
   const user = await prisma.user.findUnique({
@@ -200,9 +210,4 @@ const logout = async (refreshToken) => {
   }
 };
 
-module.exports = {
-  signup,
-  login,
-  refreshSession,
-  logout,
-};
+export { signup, login, refreshSession, logout };

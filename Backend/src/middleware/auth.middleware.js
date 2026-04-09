@@ -1,5 +1,5 @@
-const { verifyAccessToken } = require("../lib/token");
-const prisma = require("../lib/prisma");
+import { verifyAccessToken } from "../lib/token.js";
+import prisma from "../lib/prisma.js";
 
 const requireAuth = async (req, res, next) => {
   try {
@@ -35,6 +35,4 @@ const requireAuth = async (req, res, next) => {
   }
 };
 
-module.exports = {
-  requireAuth,
-};
+export { requireAuth };

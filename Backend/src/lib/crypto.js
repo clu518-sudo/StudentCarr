@@ -1,5 +1,5 @@
-const crypto = require("crypto");
-const env = require("../config/env");
+import crypto from "crypto";
+import env from "../config/env.js";
 
 const toBufferKey = () => {
   if (!env.fieldEncryptionKey) {
@@ -60,9 +60,4 @@ const hashValue = (value) =>
 
 const generateOpaqueToken = () => crypto.randomBytes(64).toString("hex");
 
-module.exports = {
-  encryptText,
-  decryptText,
-  hashValue,
-  generateOpaqueToken,
-};
+export { encryptText, decryptText, hashValue, generateOpaqueToken };

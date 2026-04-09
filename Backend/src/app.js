@@ -1,10 +1,10 @@
-const express = require("express");
-const helmet = require("helmet");
-const cors = require("cors");
-const cookieParser = require("cookie-parser");
-const env = require("./config/env");
-const apiRoutes = require("./routes");
-const errorHandler = require("./middleware/error.middleware");
+import express from "express";
+import helmet from "helmet";
+import cors from "cors";
+import cookieParser from "cookie-parser";
+import env from "./config/env.js";
+import apiRoutes from "./routes/index.js";
+import errorHandler from "./middleware/error.middleware.js";
 
 const app = express();
 
@@ -18,6 +18,7 @@ app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin || allowedOrigins.includes(origin)) {
+        // !origin allow requests without origin. (e.g. postman, same-origin requests)
         callback(null, true);
         return;
       }
@@ -43,4 +44,4 @@ app.use("/api", apiRoutes);
 
 app.use(errorHandler);
 
-module.exports = app;
+export default app;

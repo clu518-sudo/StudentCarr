@@ -1,6 +1,6 @@
-const jwt = require("jsonwebtoken");
-const crypto = require("crypto");
-const env = require("../config/env");
+import jwt from "jsonwebtoken";
+import crypto from "crypto";
+import env from "../config/env.js";
 
 const signAccessToken = (userId) =>
   jwt.sign({ sub: userId, typ: "access" }, env.accessTokenSecret, {
@@ -8,9 +8,13 @@ const signAccessToken = (userId) =>
   });
 
 const signRefreshToken = (userId, sessionId = crypto.randomUUID()) => {
-  const token = jwt.sign({ sub: userId, sid: sessionId, typ: "refresh" }, env.refreshTokenSecret, {
-    expiresIn: env.refreshTokenTtl,
-  });
+  const token = jwt.sign(
+    { sub: userId, sid: sessionId, typ: "refresh" },
+    env.refreshTokenSecret,
+    {
+      expiresIn: env.refreshTokenTtl,
+    },
+  );
   return { token, sessionId };
 };
 
@@ -20,7 +24,7 @@ const verifyAccessToken = (token) =>
 const verifyRefreshToken = (token) =>
   jwt.verify(token, env.refreshTokenSecret, { ignoreExpiration: false });
 
-module.exports = {
+export {
   signAccessToken,
   signRefreshToken,
   verifyAccessToken,

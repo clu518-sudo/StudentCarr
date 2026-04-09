@@ -1,4 +1,4 @@
-const { RateLimiterMemory } = require("rate-limiter-flexible");
+import { RateLimiterMemory } from "rate-limiter-flexible";
 
 const loginLimiter = new RateLimiterMemory({
   points: 10,
@@ -30,7 +30,4 @@ const loginRateLimit = createRateLimitMiddleware(
 
 const signupRateLimit = createRateLimitMiddleware(signupLimiter, (req) => req.ip);
 
-module.exports = {
-  loginRateLimit,
-  signupRateLimit,
-};
+export { loginRateLimit, signupRateLimit };

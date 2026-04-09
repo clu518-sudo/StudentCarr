@@ -1,4 +1,4 @@
-const dotenv = require("dotenv");
+import dotenv from "dotenv";
 
 dotenv.config();
 
@@ -23,4 +23,4 @@ const env = {
 const isProduction = env.nodeEnv === "production";
 env.isProduction = isProduction;
 
-module.exports = env;
+export default env;

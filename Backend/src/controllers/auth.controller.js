@@ -1,11 +1,11 @@
-const env = require("../config/env");
-const { setRefreshCookie, clearRefreshCookie } = require("../lib/cookies");
-const {
+import env from "../config/env.js";
+import { setRefreshCookie, clearRefreshCookie } from "../lib/cookies.js";
+import {
   signupSchema,
   loginSchema,
   validate,
-} = require("../validators/auth.schemas");
-const authService = require("../services/auth.service");
+} from "../validators/auth.schemas.js";
+import * as authService from "../services/auth.service.js";
 
 /*
 Handling the error thrown by Zod
@@ -61,6 +61,7 @@ const signup = async (req, res, next) => {
   }
 };
 
+// implementation of login
 const login = async (req, res, next) => {
   try {
     const payload = validate(loginSchema, req.body);
@@ -84,6 +85,7 @@ const login = async (req, res, next) => {
   }
 };
 
+// when access token expired, refresh access token and refresh token at the same time, recent refresh token as verification key.
 const refresh = async (req, res, next) => {
   try {
     const refreshToken = req.cookies?.[env.refreshCookieName];
@@ -102,6 +104,7 @@ const refresh = async (req, res, next) => {
   }
 };
 
+// logout the user, remove refresh token from cookie
 const logout = async (req, res, next) => {
   try {
     const refreshToken = req.cookies?.[env.refreshCookieName];
@@ -122,10 +125,4 @@ const me = async (req, res) =>
     },
   });
 
-module.exports = {
-  signup,
-  login,
-  refresh,
-  logout,
-  me,
-};
+export { signup, login, refresh, logout, me };

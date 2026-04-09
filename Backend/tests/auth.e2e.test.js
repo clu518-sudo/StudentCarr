@@ -1,6 +1,6 @@
-const request = require("supertest");
-const app = require("../src/app");
-const prisma = require("../src/lib/prisma");
+import request from "supertest";
+import app from "../src/app.js";
+import prisma from "../src/lib/prisma.js";
 
 const agent = request.agent(app);
 
