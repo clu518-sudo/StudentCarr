@@ -91,6 +91,8 @@ const parseCsv = (value) =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+const parseCsvInput = (value) => value.split(",");
+
 const toCsv = (items = []) => items.join(", ");
 
 const inputClass =
@@ -166,7 +168,7 @@ const ProfileView = () => {
       ...prev,
       preferences: {
         ...prev.preferences,
-        [field]: parseAsCsv ? parseCsv(value) : value,
+        [field]: parseAsCsv ? parseCsvInput(value) : value,
       },
     }));
   };
@@ -280,11 +282,23 @@ const ProfileView = () => {
 
     setSavingManual(true);
     try {
+      const normalizedProfile = {
+        ...manualProfile,
+        preferences: {
+          ...manualProfile.preferences,
+          preferredRoles: parseCsv(
+            toCsv(manualProfile.preferences.preferredRoles || []),
+          ),
+          preferredLocations: parseCsv(
+            toCsv(manualProfile.preferences.preferredLocations || []),
+          ),
+        },
+      };
       const response = await profileManagementApi.updateManualProfile(
-        manualProfile,
+        normalizedProfile,
         accessToken,
       );
-      setManualProfile(response?.data?.manualProfile || manualProfile);
+      setManualProfile(response?.data?.manualProfile || normalizedProfile);
       setDocuments(response?.data?.documents || documents);
       setSuccessMessage("Manual profile saved successfully.");
     } catch (saveError) {
