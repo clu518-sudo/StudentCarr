@@ -23,6 +23,7 @@
     "express": "^5.2.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
+    "multer": "^2.0.2",
     "prisma": "^6.19.2",
     "rate-limiter-flexible": "^9.1.1",
     "uuid": "^13.0.0",

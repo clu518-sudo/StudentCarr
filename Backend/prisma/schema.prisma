@@ -22,6 +22,8 @@ model User {
   updatedAt       DateTime      @updatedAt @map("updated_at")
   sessions        AuthSession[]
   auditLogs       AuthAuditLog[]
+  profile         UserProfile?
+  profileDocuments ProfileDocument[]
 
   @@map("users")
 }
@@ -53,4 +55,143 @@ model AuthAuditLog {
   @@index([userId])
   @@index([eventType])
   @@map("auth_audit_logs")
+}
+
+model UserProfile {
+  id                 String           @id @default(uuid())
+  userId             String           @unique @map("user_id")
+  headline           String?
+  summary            String?
+  phone              String?
+  location           String?
+  preferredRoles     Json?            @map("preferred_roles")
+  preferredLocations Json?            @map("preferred_locations")
+  workAuthorization  String?          @map("work_authorization")
+  salaryRange        String?          @map("salary_range")
+  availability       String?
+  links              Json?
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  education          Education[]
+  workExperiences    WorkExperience[]
+  projects           Project[]
+  certifications     Certification[]
+  skills             Skill[]
+
+  @@index([userId])
+  @@map("user_profiles")
+}
+
+model Education {
+  id            String      @id @default(uuid())
+  userProfileId String      @map("user_profile_id")
+  school        String
+  degree        String?
+  fieldOfStudy  String?     @map("field_of_study")
+  startDate     String?     @map("start_date")
+  endDate       String?     @map("end_date")
+  grade         String?
+  description   String?
+  isCurrent     Boolean     @default(false) @map("is_current")
+  sortOrder     Int         @default(0) @map("sort_order")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  userProfile   UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+
+  @@index([userProfileId])
+  @@map("education")
+}
+
+model WorkExperience {
+  id            String      @id @default(uuid())
+  userProfileId String      @map("user_profile_id")
+  company       String
+  title         String
+  location      String?
+  startDate     String?     @map("start_date")
+  endDate       String?     @map("end_date")
+  isCurrent     Boolean     @default(false) @map("is_current")
+  description   String?
+  achievements  Json?
+  sortOrder     Int         @default(0) @map("sort_order")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  userProfile   UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+
+  @@index([userProfileId])
+  @@map("work_experiences")
+}
+
+model Project {
+  id            String      @id @default(uuid())
+  userProfileId String      @map("user_profile_id")
+  name          String
+  role          String?
+  description   String?
+  technologies  Json?
+  startDate     String?     @map("start_date")
+  endDate       String?     @map("end_date")
+  projectUrl    String?     @map("project_url")
+  repositoryUrl String?     @map("repository_url")
+  sortOrder     Int         @default(0) @map("sort_order")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  userProfile   UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+
+  @@index([userProfileId])
+  @@map("projects")
+}
+
+model Certification {
+  id            String      @id @default(uuid())
+  userProfileId String      @map("user_profile_id")
+  name          String
+  issuer        String?
+  issueDate     String?     @map("issue_date")
+  expiryDate    String?     @map("expiry_date")
+  credentialId  String?     @map("credential_id")
+  credentialUrl String?     @map("credential_url")
+  sortOrder     Int         @default(0) @map("sort_order")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  userProfile   UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+
+  @@index([userProfileId])
+  @@map("certifications")
+}
+
+model Skill {
+  id                String      @id @default(uuid())
+  userProfileId     String      @map("user_profile_id")
+  name              String
+  level             String?
+  category          String?
+  yearsOfExperience Int?        @map("years_of_experience")
+  keywords          Json?
+  sortOrder         Int         @default(0) @map("sort_order")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+  userProfile       UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+
+  @@index([userProfileId])
+  @@map("skills")
+}
+
+model ProfileDocument {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  documentType String   @map("document_type")
+  originalName String   @map("original_name")
+  storedName   String   @map("stored_name")
+  mimeType     String   @map("mime_type")
+  size         Int
+  path         String
+  status       String   @default("uploaded")
+  uploadedAt   DateTime @default(now()) @map("uploaded_at")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([documentType])
+  @@map("profile_documents")
 }

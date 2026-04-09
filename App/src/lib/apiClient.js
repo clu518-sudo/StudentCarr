@@ -1,37 +1,76 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
 
-const buildHeaders = (token) => {
-  const headers = {
-    "Content-Type": "application/json",
-  };
+const buildHeaders = (token, customHeaders = {}, hasFormData = false) => {
+  const headers = {};
+
+  if (!hasFormData) {
+    headers["Content-Type"] = "application/json";
+  }
 
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  return headers;
+  return {
+    ...headers,
+    ...customHeaders,
+  };
 };
 
 export const apiRequest = async (path, options = {}, token = null) => {
+  const responseType = options.responseType || "json";
+  const hasFormData = Boolean(options.formData);
+  const body = hasFormData
+    ? options.formData
+    : options.body
+      ? JSON.stringify(options.body)
+      : undefined;
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: options.method || "GET",
-    headers: buildHeaders(token),
+    headers: buildHeaders(token, options.headers, hasFormData),
     credentials: "include",
-    body: options.body ? JSON.stringify(options.body) : undefined,
+    body,
   });
+
+  if (!response.ok) {
+    let payload = null;
+    let fallbackMessage = "Request failed";
+    try {
+      payload = await response.clone().json();
+    } catch {
+      try {
+        const responseText = await response.text();
+        if (responseText) {
+          fallbackMessage = responseText;
+        }
+      } catch {
+        // Keep default fallback error message.
+      }
+    }
+
+    const error = new Error(payload?.error || "Request failed");
+    error.status = response.status;
+    error.payload = payload;
+    if (!payload?.error && fallbackMessage) {
+      error.message = fallbackMessage;
+    }
+    throw error;
+  }
+
+  if (responseType === "blob") {
+    return response.blob();
+  }
+
+  if (responseType === "text") {
+    return response.text();
+  }
 
   let payload = null;
   try {
     payload = await response.json();
   } catch {
-    // Ignore JSON parsing issues and return generic message below.
-  }
-
-  if (!response.ok) {
-    const error = new Error(payload?.error || "Request failed");
-    error.status = response.status;
-    error.payload = payload;
-    throw error;
+    // Ignore JSON parsing issues and return null when no payload is expected.
   }
 
   return payload;
@@ -43,4 +82,59 @@ export const authApi = {
   refresh: () => apiRequest("/auth/refresh", { method: "POST" }),
   logout: () => apiRequest("/auth/logout", { method: "POST" }),
   me: (token) => apiRequest("/auth/me", { method: "GET" }, token),
+};
+
+export const profileManagementApi = {
+  getProfile: (token) =>
+    apiRequest("/profile-management", { method: "GET" }, token),
+  updateManualProfile: (body, token) =>
+    apiRequest("/profile-management/manual", { method: "PUT", body }, token),
+  getDocuments: (token) =>
+    apiRequest("/profile-management/documents", { method: "GET" }, token),
+  uploadDocuments: ({ files, documentTypes, githubUrl }, token) => {
+    const formData = new FormData();
+    files.forEach((file) => formData.append("documents", file));
+    documentTypes.forEach((type) => formData.append("documentTypes", type));
+    if (githubUrl) {
+      formData.append("githubUrl", githubUrl);
+    }
+
+    return apiRequest(
+      "/profile-management/documents",
+      {
+        method: "POST",
+        formData,
+      },
+      token,
+    );
+  },
+  uploadSingleDocument: ({ file, documentType, githubUrl }, token) => {
+    const formData = new FormData();
+    formData.append("document", file);
+    formData.append("documentType", documentType);
+    if (githubUrl) {
+      formData.append("githubUrl", githubUrl);
+    }
+
+    return apiRequest(
+      "/profile-management/documents/single",
+      {
+        method: "POST",
+        formData,
+      },
+      token,
+    );
+  },
+  deleteDocument: (documentId, token) =>
+    apiRequest(
+      `/profile-management/documents/${documentId}`,
+      { method: "DELETE" },
+      token,
+    ),
+  downloadDocument: (documentId, token) =>
+    apiRequest(
+      `/profile-management/documents/${documentId}/download`,
+      { method: "GET", responseType: "blob" },
+      token,
+    ),
 };
