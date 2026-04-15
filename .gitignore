@@ -141,9 +141,6 @@ build/
 tmp/
 temp/
 
-# developer folder
-planing/
-
 # database
 .db
 
