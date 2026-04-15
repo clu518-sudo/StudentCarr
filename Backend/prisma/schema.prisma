@@ -188,10 +188,19 @@ model ProfileDocument {
   size         Int
   path         String
   status       String   @default("uploaded")
+  parserStatus String   @default("pending") @map("parser_status")
+  parsedText   String?  @map("parsed_text")
+  extractionMethod String? @map("extraction_method")
+  pageCount    Int?     @map("page_count")
+  parserError  String?  @map("parser_error")
+  parserStartedAt DateTime? @map("parser_started_at")
+  parserCompletedAt DateTime? @map("parser_completed_at")
+  parserUpdatedAt DateTime @default(now()) @updatedAt @map("parser_updated_at")
   uploadedAt   DateTime @default(now()) @map("uploaded_at")
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([documentType])
+  @@index([parserStatus])
   @@map("profile_documents")
 }

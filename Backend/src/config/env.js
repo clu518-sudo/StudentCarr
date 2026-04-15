@@ -18,6 +18,19 @@ const env = {
   refreshTokenTtl: process.env.REFRESH_TOKEN_TTL || "30d",
   refreshCookieName: process.env.REFRESH_COOKIE_NAME || "refresh_token",
   fieldEncryptionKey: process.env.FIELD_ENCRYPTION_KEY || "",
+  documentParserConcurrency: toNumber(process.env.DOCUMENT_PARSER_CONCURRENCY, 1),
+  documentParserMinCharacters: toNumber(
+    process.env.DOCUMENT_PARSER_MIN_CHARACTERS,
+    200,
+  ),
+  documentParserRenderScale: toNumber(
+    process.env.DOCUMENT_PARSER_RENDER_SCALE,
+    1.5,
+  ),
+  vllmBaseUrl: process.env.VLLM_BASE_URL || "",
+  vllmModel: process.env.VLLM_MODEL || "",
+  vllmApiKey: process.env.VLLM_API_KEY || "",
+  vllmTimeoutMs: toNumber(process.env.VLLM_TIMEOUT_MS, 120000),
 };
 
 const isProduction = env.nodeEnv === "production";

@@ -1,5 +1,7 @@
 import prisma from "../lib/prisma.js";
 import { removeFileSafe } from "./pm.storage.js";
+import { enqueueDocumentParsing } from "../documentParsing/index.js";
+import { DOCUMENT_PARSER_STATUS } from "../documentParsing/constants.js";
 
 const toStringOrNull = (value) => {
   if (typeof value !== "string") {
@@ -206,9 +208,34 @@ const mapDocument = (document) => ({
   originalName: document.originalName,
   mimeType: document.mimeType,
   size: document.size,
-  status: document.status,
+  status: document.parserStatus || document.status,
+  uploadStatus: document.status,
+  parserStatus: document.parserStatus,
+  extractionMethod: document.extractionMethod,
+  pageCount: document.pageCount,
+  parserError: document.parserError,
+  parserStartedAt: document.parserStartedAt,
+  parserCompletedAt: document.parserCompletedAt,
+  parserUpdatedAt: document.parserUpdatedAt,
   uploadedAt: document.uploadedAt,
 });
+
+const documentListSelect = {
+  id: true,
+  documentType: true,
+  originalName: true,
+  mimeType: true,
+  size: true,
+  status: true,
+  parserStatus: true,
+  extractionMethod: true,
+  pageCount: true,
+  parserError: true,
+  parserStartedAt: true,
+  parserCompletedAt: true,
+  parserUpdatedAt: true,
+  uploadedAt: true,
+};
 
 const getProfileForUser = async (userId) => {
   const [user, profile, documents] = await Promise.all([
@@ -229,6 +256,7 @@ const getProfileForUser = async (userId) => {
     prisma.profileDocument.findMany({
       where: { userId },
       orderBy: { uploadedAt: "desc" },
+      select: documentListSelect,
     }),
   ]);
 
@@ -326,6 +354,7 @@ const listDocumentsForUser = async (userId) => {
   const documents = await prisma.profileDocument.findMany({
     where: { userId },
     orderBy: { uploadedAt: "desc" },
+    select: documentListSelect,
   });
   return documents.map(mapDocument);
 };
@@ -390,7 +419,10 @@ const uploadDocumentsForUser = async (
             size: file.size,
             path: file.path,
             status: "uploaded",
+            parserStatus: DOCUMENT_PARSER_STATUS.PENDING,
+            parserError: null,
           },
+          select: documentListSelect,
         });
         created.push(savedDoc);
       }
@@ -398,7 +430,10 @@ const uploadDocumentsForUser = async (
       return created;
     });
 
-    // TODO: Integrate LangGraph workflow to parse documents and enrich profile.
+    createdDocs.forEach((document) => {
+      enqueueDocumentParsing(document.id);
+    });
+
     return createdDocs.map(mapDocument);
   } catch (error) {
     await Promise.all((files || []).map((file) => removeFileSafe(file.path)));

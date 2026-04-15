@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { profileManagementApi } from "../../lib/apiClient";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -105,6 +105,42 @@ const profileDangerButtonClass =
   "inline-flex items-center justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 transition-colors duration-200 hover:bg-red-100";
 const profileDisabledButtonClass =
   "inline-flex items-center justify-center rounded-lg border border-gray-200 bg-gray-100 px-4 py-2 text-sm font-medium text-gray-400 cursor-not-allowed";
+const documentPollingIntervalMs = 3000;
+const activeParserStatuses = new Set(["pending", "processing"]);
+
+const getParserStatus = (document) =>
+  document?.parserStatus || document?.status || "pending";
+
+const hasActiveDocumentParsing = (documents = []) =>
+  documents.some((document) => activeParserStatuses.has(getParserStatus(document)));
+
+const getParserStatusLabel = (status) => {
+  switch (status) {
+    case "processing":
+      return "Parsing in progress";
+    case "completed":
+      return "Parsing completed";
+    case "failed":
+      return "Parsing failed";
+    case "pending":
+    default:
+      return "Upload received / parsing pending";
+  }
+};
+
+const getParserStatusClass = (status) => {
+  switch (status) {
+    case "processing":
+      return "inline-flex rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700";
+    case "completed":
+      return "inline-flex rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700";
+    case "failed":
+      return "inline-flex rounded-full bg-red-100 px-2 py-1 text-xs font-medium text-red-700";
+    case "pending":
+    default:
+      return "inline-flex rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700";
+  }
+};
 
 const ProfileView = () => {
   const { accessToken } = useAuth();
@@ -120,7 +156,28 @@ const ProfileView = () => {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  const loadProfile = async () => {
+  const refreshDocuments = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!accessToken) {
+        return [];
+      }
+
+      try {
+        const docsResponse = await profileManagementApi.getDocuments(accessToken);
+        const nextDocuments = docsResponse?.data?.documents || [];
+        setDocuments(nextDocuments);
+        return nextDocuments;
+      } catch (loadError) {
+        if (!silent) {
+          throw loadError;
+        }
+        return [];
+      }
+    },
+    [accessToken],
+  );
+
+  const loadProfile = useCallback(async () => {
     if (!accessToken) {
       return;
     }
@@ -147,11 +204,25 @@ const ProfileView = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [accessToken]);
 
   useEffect(() => {
     loadProfile();
-  }, [accessToken]);
+  }, [loadProfile]);
+
+  useEffect(() => {
+    if (!accessToken || !hasActiveDocumentParsing(documents)) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      refreshDocuments({ silent: true });
+    }, documentPollingIntervalMs);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [accessToken, documents, refreshDocuments]);
 
   const updatePersonalInfo = (field, value) => {
     setManualProfile((prev) => ({
@@ -325,8 +396,7 @@ const ProfileView = () => {
         },
         accessToken,
       );
-      const docsResponse = await profileManagementApi.getDocuments(accessToken);
-      setDocuments(docsResponse?.data?.documents || []);
+      await refreshDocuments();
       setSuccessMessage(`${documentType} uploaded successfully.`);
     } catch (uploadError) {
       setError(uploadError.message || "Failed to upload documents");
@@ -1355,23 +1425,46 @@ const ProfileView = () => {
                       </p>
                     ) : (
                       <div className="rounded-md border border-gray-100 divide-y">
-                        {documentsByType[type].map((doc) => (
-                          <div
-                            key={doc.id}
-                            className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-3"
-                          >
+                        {documentsByType[type].map((doc) => {
+                          const parserStatus = getParserStatus(doc);
+
+                          return (
+                            <div
+                              key={doc.id}
+                              className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-3"
+                            >
                             <div>
                               <p className="font-medium text-gray-900">
                                 {doc.originalName}
                               </p>
-                              <p className="text-sm text-gray-600">
+                              <div className="mt-1 flex flex-wrap items-center gap-2">
+                                <span className={getParserStatusClass(parserStatus)}>
+                                  {getParserStatusLabel(parserStatus)}
+                                </span>
+                                {doc.extractionMethod && (
+                                  <span className="text-xs text-gray-500">
+                                    via {doc.extractionMethod}
+                                  </span>
+                                )}
+                                {typeof doc.pageCount === "number" && (
+                                  <span className="text-xs text-gray-500">
+                                    {doc.pageCount} page{doc.pageCount === 1 ? "" : "s"}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-1 text-sm text-gray-600">
                                 {(doc.size / 1024 / 1024).toFixed(2)} MB •{" "}
-                                {doc.status}
+                                {parserStatus}
                               </p>
                               <p className="text-xs text-gray-500">
                                 Uploaded{" "}
                                 {new Date(doc.uploadedAt).toLocaleString()}
                               </p>
+                              {doc.parserError && (
+                                <p className="mt-1 text-xs text-red-600">
+                                  {doc.parserError}
+                                </p>
+                              )}
                             </div>
                             <div className="flex items-center gap-2">
                               <button
@@ -1392,8 +1485,9 @@ const ProfileView = () => {
                                 Delete
                               </button>
                             </div>
-                          </div>
-                        ))}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
