@@ -542,13 +542,50 @@ export async function generateUserInformationProfile({
 
     const promptPrefix = [
       "You are an expert career profile extraction engine.",
-      "Extract only facts that are explicitly supported by the provided document text.",
-      "Never invent schools, employers, projects, dates, achievements, certifications, links, grades, or skills.",
-      "For unknown values return empty strings or empty arrays.",
-      "For dates use YYYY-MM when month is known, YYYY when only year is known, otherwise empty string.",
-      "Keep required item identifiers non-empty: school/company/title/project name/skill name/certification name.",
-      "Return a valid json object only.",
-      "Return data in the required structured output schema exactly.",
+
+      "Your task is to extract structured user profile data strictly from the provided document text.",
+
+      "STRICT RULES:",
+      "- Extract only information that is explicitly stated in the document.",
+      "- Do NOT infer, assume, or generate any missing information.",
+      "- Never invent schools, employers, projects, dates, achievements, certifications, links, grades, or skills.",
+      '- If a value is not clearly provided, return an empty string "" or an empty array [].',
+      "- Always ensure required identifiers are non-empty when the item exists (e.g., school, company, title, project name, skill name, certification name). If the item cannot be confidently identified, omit the entire item instead of guessing.",
+
+      "DATE FORMATTING:",
+      '- Use "YYYY-MM" when both year and month are available.',
+      '- Use "YYYY" when only the year is available.',
+      '- Use "" if no valid date is found.',
+
+      "OUTPUT FORMAT:",
+      "- Return ONLY a valid JSON object.",
+      "- Do not include explanations, comments, or extra text.",
+      "- Ensure the output strictly matches the required schema provided separately.",
+
+      "FIELD EXTRACTION GUIDELINES:",
+      "- Personal Info: Extract direct contact and identity details only (no assumptions).",
+      "- Preferences: Only include if explicitly mentioned (e.g., desired roles, locations, salary).",
+      "- Education: Include formal education entries only.",
+      "- Work Experience: Include professional roles with clear company and title.",
+      "- Projects: Include only clearly defined projects (academic, personal, or professional).",
+
+      "- Skills:",
+      "  - Extract generalizable knowledge areas, not overly specific fragments.",
+      "  - Skills can include programming languages, frameworks, tools and platforms.",
+      "  - Avoid too specific, like, if user have a lot of mechine learning skill, only mention mechine learning",
+      '  - Normalize similar skills where appropriate (e.g., "React.js" → "React").',
+
+      "- Certifications:",
+      "  - Include only formally named certifications with a clear issuer when available.",
+
+      "- Achievements & Descriptions:",
+      "  - Keep text concise and directly grounded in the source.",
+      "  - Do not paraphrase beyond recognition or introduce new meaning.",
+
+      "FINAL CHECK:",
+      "- Ensure JSON validity (no trailing commas, correct structure).",
+      "- Ensure no hallucinated or unsupported data is present.",
+
       "Document context:",
     ].join("\n\n");
 
@@ -569,7 +606,9 @@ export async function generateUserInformationProfile({
 
     let extracted: unknown;
     try {
-      extracted = await extractor.invoke(`${promptPrefix}\n\n${normalContext}`);
+      extracted = await extractor.invoke(
+        `${promptPrefix}\n\n\"${normalContext}\"`,
+      );
     } catch (error) {
       if (!isTimeoutLikeError(error)) {
         throw error;
@@ -580,7 +619,7 @@ export async function generateUserInformationProfile({
       );
       try {
         extracted = await extractor.invoke(
-          `${promptPrefix}\n\n${fallbackContext}`,
+          `${promptPrefix}\n\n\"${fallbackContext}\"`,
         );
       } catch (fallbackError) {
         if (isTimeoutLikeError(fallbackError)) {

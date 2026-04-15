@@ -189,9 +189,17 @@ const isAbortError = (error) =>
 const generateManualProfileStream = async (req, res, next) => {
   let streamClosed = false;
   const generationAbortController = new AbortController();
-  req.on("close", () => {
+
+  const abortGeneration = () => {
     streamClosed = true;
     generationAbortController.abort();
+  };
+
+  req.on("aborted", abortGeneration);
+  res.on("close", () => {
+    if (!res.writableEnded) {
+      abortGeneration();
+    }
   });
 
   try {
