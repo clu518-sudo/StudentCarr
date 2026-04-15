@@ -3,6 +3,13 @@ import { removeFileSafe } from "./pm.storage.js";
 import { enqueueDocumentParsing } from "../documentParsing/index.js";
 import { DOCUMENT_PARSER_STATUS } from "../documentParsing/constants.js";
 
+const PROFILE_GENERATION_SERVICE_URL =
+  process.env.PROFILE_GENERATION_SERVICE_URL ||
+  "http://127.0.0.1:2024/generate-profile";
+
+const isAbortError = (error) =>
+  error?.name === "AbortError" || error?.code === "ABORT_ERR";
+
 const toStringOrNull = (value) => {
   if (typeof value !== "string") {
     return null;
@@ -359,6 +366,33 @@ const listDocumentsForUser = async (userId) => {
   return documents.map(mapDocument);
 };
 
+const listDocumentsWithParsedTextForUser = async (userId) => {
+  const documents = await prisma.profileDocument.findMany({
+    where: { userId },
+    orderBy: { uploadedAt: "desc" },
+    select: {
+      id: true,
+      documentType: true,
+      originalName: true,
+      parserStatus: true,
+      parsedText: true,
+      uploadedAt: true,
+    },
+  });
+
+  return documents.map((document) => ({
+    id: document.id,
+    documentType: document.documentType,
+    originalName: document.originalName,
+    parserStatus: document.parserStatus,
+    parsedText: document.parsedText || "",
+    uploadedAt:
+      document.uploadedAt instanceof Date
+        ? document.uploadedAt.toISOString()
+        : "",
+  }));
+};
+
 const uploadDocumentsForUser = async (
   userId,
   files,
@@ -491,132 +525,69 @@ const getDocumentForUser = async (userId, documentId) => {
   return document;
 };
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const createDummyGeneratedProfile = (currentManualProfile, documents) => {
-  const hasTranscript = documents.some(
-    (doc) => doc.documentType === "Transcript",
-  );
-  const hasWorkHistory = documents.some(
-    (doc) =>
-      doc.documentType === "Working History & Related Project Description",
-  );
-  const hasProject = documents.some((doc) => doc.documentType === "Project");
-  const hasCertification = documents.some(
-    (doc) => doc.documentType === "Certification",
-  );
-  const hasResume = documents.some((doc) => doc.documentType === "Resume");
-
-  const generated = {
-    ...currentManualProfile,
-    personalInfo: {
-      ...currentManualProfile.personalInfo,
-      headline: hasResume
-        ? "Full-Stack Software Engineer | React, Node.js, Prisma"
-        : currentManualProfile.personalInfo.headline,
-      summary: hasResume
-        ? "Results-driven engineer with hands-on experience building full-stack web applications, integrating APIs, and delivering production-ready features."
-        : currentManualProfile.personalInfo.summary,
-    },
-  };
-
-  if (hasTranscript) {
-    generated.education = [
-      {
-        school: "Dummy University",
-        degree: "Bachelor of Science",
-        fieldOfStudy: "Computer Science",
-        startDate: "2019-09",
-        endDate: "2023-06",
-        grade: "3.8 / 4.0",
-        description:
-          "Focused on software engineering, databases, and distributed systems.",
-        isCurrent: false,
+const requestGeneratedManualProfile = async (
+  currentManualProfile,
+  documents,
+  signal,
+) => {
+  let response;
+  try {
+    response = await fetch(PROFILE_GENERATION_SERVICE_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    ];
+      body: JSON.stringify({
+        currentManualProfile,
+        documents,
+      }),
+      signal,
+    });
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+    const networkError = new Error(
+      "Unable to reach the AI profile generation service. Make sure AIServices is running.",
+    );
+    networkError.statusCode = 502;
+    throw networkError;
   }
 
-  if (hasWorkHistory) {
-    generated.workExperience = [
-      {
-        company: "Dummy Tech Co.",
-        title: "Software Engineer",
-        location: "Remote",
-        startDate: "2023-07",
-        endDate: "",
-        isCurrent: true,
-        description:
-          "Built and maintained full-stack features using React and Node.js, improving delivery speed and reliability.",
-        achievements: [
-          "Delivered 12+ customer-facing features",
-          "Reduced API error rate by 30%",
-        ],
-      },
-    ];
+  const responseBody = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const serviceError = new Error(
+      responseBody?.error ||
+        "AI profile generation failed. Please try again in a moment.",
+    );
+    serviceError.statusCode = response.status >= 400 ? response.status : 502;
+    throw serviceError;
   }
 
-  if (hasProject) {
-    generated.projects = [
-      {
-        name: "Student Career Platform",
-        role: "Full-Stack Developer",
-        description:
-          "Developed a profile and document workflow with role-based authentication and API-driven architecture.",
-        technologies: ["React", "Node.js", "Express", "Prisma", "SQLite"],
-        startDate: "2024-01",
-        endDate: "",
-        projectUrl: "https://example.com/student-career",
-        repositoryUrl: "https://github.com/example/student-career",
-      },
-    ];
+  const manualProfile = responseBody?.data?.manualProfile;
+  if (!manualProfile || typeof manualProfile !== "object") {
+    const shapeError = new Error(
+      "AI profile service returned an invalid profile shape.",
+    );
+    shapeError.statusCode = 502;
+    throw shapeError;
   }
 
-  if (hasCertification) {
-    generated.certifications = [
-      {
-        name: "AWS Certified Cloud Practitioner",
-        issuer: "Amazon Web Services",
-        issueDate: "2024-05",
-        expiryDate: "2027-05",
-        credentialId: "DUMMY-AWS-12345",
-        credentialUrl: "https://www.credly.com/",
-      },
-    ];
-  }
-
-  if (hasResume) {
-    generated.skills = [
-      {
-        name: "JavaScript",
-        level: "Advanced",
-        category: "Programming Language",
-        yearsOfExperience: 3,
-        keywords: ["ES6+", "Async/Await", "Node.js"],
-      },
-      {
-        name: "React",
-        level: "Advanced",
-        category: "Frontend",
-        yearsOfExperience: 3,
-        keywords: ["Hooks", "Component Design", "State Management"],
-      },
-      {
-        name: "SQL",
-        level: "Intermediate",
-        category: "Database",
-        yearsOfExperience: 2,
-        keywords: ["Joins", "Indexing", "Query Optimization"],
-      },
-    ];
-  }
-
-  return generated;
+  return manualProfile;
 };
 
-/*
-Need be replaced by real AI workflow implementation 
-*/
-const generateManualProfileForUserDummy = async (userId, onProgress) => {
+const generateManualProfileForUserDummy = async (
+  userId,
+  onProgress,
+  options = {},
+) => {
+  const signal = options?.signal;
+  if (signal?.aborted) {
+    const abortError = new Error("Generation cancelled");
+    abortError.name = "AbortError";
+    throw abortError;
+  }
+
   const current = await getProfileForUser(userId);
   if (!current.documents.length) {
     const error = new Error(
@@ -629,25 +600,37 @@ const generateManualProfileForUserDummy = async (userId, onProgress) => {
   if (onProgress) {
     onProgress("Analyzing uploaded documents...");
   }
-  await sleep(1200);
+
+  const sourceDocuments = await listDocumentsWithParsedTextForUser(userId);
+  const hasUsableParsedText = sourceDocuments.some(
+    (document) => typeof document.parsedText === "string" && document.parsedText.trim(),
+  );
+  if (!hasUsableParsedText) {
+    const error = new Error(
+      "Uploaded documents are still being parsed or do not contain extractable text. Please wait for parsing to complete or upload parseable documents.",
+    );
+    error.statusCode = 400;
+    throw error;
+  }
 
   if (onProgress) {
-    onProgress("Extracting profile details...");
+    onProgress("Extracting profile details from parsed documents...");
   }
-  await sleep(1300);
 
-  const generatedManualProfile = createDummyGeneratedProfile(
+  const generatedManualProfile = await requestGeneratedManualProfile(
     current.manualProfile,
-    current.documents,
+    sourceDocuments,
+    signal,
   );
 
   if (onProgress) {
-    onProgress("Saving generated profile...");
+    onProgress("Generated profile draft is ready for review.");
   }
-  await sleep(1500);
 
-  await upsertManualProfileForUser(userId, generatedManualProfile);
-  return getProfileForUser(userId);
+  return {
+    ...current,
+    manualProfile: generatedManualProfile,
+  };
 };
 
 export {

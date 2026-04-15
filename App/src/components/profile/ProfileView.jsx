@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { profileManagementApi } from "../../lib/apiClient";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -155,6 +155,7 @@ const ProfileView = () => {
   const [generatingManual, setGeneratingManual] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const generateAbortControllerRef = useRef(null);
 
   const refreshDocuments = useCallback(
     async ({ silent = false } = {}) => {
@@ -223,6 +224,13 @@ const ProfileView = () => {
       window.clearInterval(intervalId);
     };
   }, [accessToken, documents, refreshDocuments]);
+
+  useEffect(
+    () => () => {
+      generateAbortControllerRef.current?.abort();
+    },
+    [],
+  );
 
   const updatePersonalInfo = (field, value) => {
     setManualProfile((prev) => ({
@@ -451,11 +459,14 @@ const ProfileView = () => {
     setError("");
     setSuccessMessage(`${sectionName} generation started...`);
     setGeneratingManual(true);
+    const abortController = new AbortController();
+    generateAbortControllerRef.current = abortController;
 
     try {
       await profileManagementApi.generateManualProfileStream(
         {
           sectionName,
+          signal: abortController.signal,
           onEvent: (eventName, payload) => {
             if (eventName === "started" || eventName === "progress") {
               if (payload?.message) {
@@ -485,10 +496,22 @@ const ProfileView = () => {
         accessToken,
       );
     } catch (generationError) {
+      if (generationError?.name === "AbortError") {
+        setSuccessMessage("Generation cancelled.");
+        return;
+      }
       setError(generationError.message || "Profile generation failed");
     } finally {
+      generateAbortControllerRef.current = null;
       setGeneratingManual(false);
     }
+  };
+
+  const cancelGeneration = () => {
+    if (!generatingManual) {
+      return;
+    }
+    generateAbortControllerRef.current?.abort();
   };
 
   if (loading) {
@@ -1357,19 +1380,29 @@ const ProfileView = () => {
               >
                 {savingManual ? "Saving..." : "Save Profile"}
               </button>
-              <button
-                type="button"
-                className={
-                  canGenerateManualProfile
-                    ? "btn-primary"
-                    : profileDisabledButtonClass
-                }
-                title="Ai generate according upload file"
-                disabled={!canGenerateManualProfile || generatingManual}
-                onClick={() => handleGenerateSection("Manual Entry")}
-              >
-                {generatingManual ? "Generating..." : "Generate"}
-              </button>
+              {generatingManual ? (
+                <button
+                  type="button"
+                  className={profileDangerButtonClass}
+                  onClick={cancelGeneration}
+                >
+                  Cancel Generate
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={
+                    canGenerateManualProfile
+                      ? "btn-primary"
+                      : profileDisabledButtonClass
+                  }
+                  title="Ai generate according upload file"
+                  disabled={!canGenerateManualProfile}
+                  onClick={() => handleGenerateSection("Manual Entry")}
+                >
+                  Generate
+                </button>
+              )}
             </div>
           </form>
         ) : (

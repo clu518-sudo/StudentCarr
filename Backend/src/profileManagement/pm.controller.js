@@ -183,10 +183,15 @@ const sendSseEvent = (res, eventName, payload) => {
   res.write(`data: ${JSON.stringify(payload)}\n\n`);
 };
 
+const isAbortError = (error) =>
+  error?.name === "AbortError" || error?.code === "ABORT_ERR";
+
 const generateManualProfileStream = async (req, res, next) => {
   let streamClosed = false;
+  const generationAbortController = new AbortController();
   req.on("close", () => {
     streamClosed = true;
+    generationAbortController.abort();
   });
 
   try {
@@ -204,11 +209,15 @@ const generateManualProfileStream = async (req, res, next) => {
       message: `${sectionName} generation started.`,
     });
 
-    const result = await generateManualProfileForUserDummy(req.user.id, (message) => {
-      if (!streamClosed) {
-        sendSseEvent(res, "progress", { message });
-      }
-    });
+    const result = await generateManualProfileForUserDummy(
+      req.user.id,
+      (message) => {
+        if (!streamClosed) {
+          sendSseEvent(res, "progress", { message });
+        }
+      },
+      { signal: generationAbortController.signal },
+    );
 
     if (!streamClosed) {
       sendSseEvent(res, "completed", {
@@ -218,6 +227,10 @@ const generateManualProfileStream = async (req, res, next) => {
       res.end();
     }
   } catch (error) {
+    if (isAbortError(error) || streamClosed) {
+      return;
+    }
+
     if (!res.headersSent) {
       if (error.name === "ZodError") {
         return res

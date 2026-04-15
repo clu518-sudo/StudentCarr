@@ -138,7 +138,7 @@ export const profileManagementApi = {
       token,
     ),
   generateManualProfileStream: async (
-    { sectionName, onEvent = () => {} },
+    { sectionName, onEvent = () => {}, signal },
     token,
   ) => {
     const response = await fetch(
@@ -148,6 +148,7 @@ export const profileManagementApi = {
         headers: buildHeaders(token),
         credentials: "include",
         body: JSON.stringify({ sectionName }),
+        signal,
       },
     );
 

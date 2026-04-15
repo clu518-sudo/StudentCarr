@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx src/demo.ts",
+    "dev": "tsx src/generate_user_infomation.ts",
+    "start": "tsx src/generate_user_infomation.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
