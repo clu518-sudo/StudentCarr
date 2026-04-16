@@ -37,7 +37,7 @@ class ServiceError extends Error {
   }
 }
 
-const stringOrEmpty = z.string().trim().max(2000).optional().or(z.literal(""));
+const stringOrEmpty = z.string().trim().max(2000).optional().default("");
 
 const linkSchema = z.object({
   label: z.string().trim().max(100).optional().or(z.literal("")),
@@ -96,7 +96,7 @@ const certificationItemSchema = z.object({
 
 const manualProfileSchema = z.object({
   personalInfo: z.object({
-    name: z.string().trim().max(150).optional().or(z.literal("")),
+    name: z.string().trim().max(150).optional().default(""),
     headline: stringOrEmpty,
     summary: stringOrEmpty,
     phone: stringOrEmpty,
@@ -134,12 +134,28 @@ const generateRequestSchema = z.object({
   documents: z.array(profileDocumentInputSchema).min(1),
 });
 
-const extractProfileOutputSchema = manualProfileSchema;
+const extractPersonalPreferencesEducationOutputSchema =
+  manualProfileSchema.pick({
+    personalInfo: true,
+    preferences: true,
+    education: true,
+  });
+const extractWorkExperienceProjectsOutputSchema = manualProfileSchema.pick({
+  workExperience: true,
+  projects: true,
+});
+const extractSkillsCertificationsOutputSchema = manualProfileSchema.pick({
+  skills: true,
+  certifications: true,
+});
 
 const GraphState = Annotation.Root({
   currentManualProfile: Annotation<ManualProfile>,
   documents: Annotation<ProfileDocumentInput[]>,
   preparedDocuments: Annotation<PreparedDocument[]>,
+  extractedPersonalPreferencesEducation: Annotation<ManualProfile>,
+  extractedWorkExperienceProjects: Annotation<ManualProfile>,
+  extractedSkillsCertifications: Annotation<ManualProfile>,
   extractedProfile: Annotation<ManualProfile>,
   generatedManualProfile: Annotation<ManualProfile>,
 });
@@ -489,7 +505,7 @@ const buildModel = () => {
   return new ChatOpenAI({
     apiKey: OPENAI_API_KEY,
     model: OPENAI_MODEL,
-    temperature: 0.1,
+    temperature: 0,
     timeout: OPENAI_TIMEOUT_MS,
     maxRetries: OPENAI_MAX_RETRIES,
     configuration: OPENAI_BASE_URL ? { baseURL: OPENAI_BASE_URL } : undefined,
@@ -536,56 +552,46 @@ export async function generateUserInformationProfile({
     return { preparedDocuments };
   };
 
-  const extractProfile = async (state: typeof GraphState.State) => {
-    await runProgress("Extracting profile evidence from uploaded documents...");
-    const extractor = llm.withStructuredOutput(extractProfileOutputSchema);
+  const extractProfileSegment = async ({
+    state,
+    outputSchema,
+    progressMessage,
+    timeoutProgressMessage,
+    focusGuidelines,
+  }: {
+    state: typeof GraphState.State;
+    outputSchema: z.ZodTypeAny;
+    progressMessage: string;
+    timeoutProgressMessage: string;
+    focusGuidelines: string[];
+  }): Promise<ManualProfile> => {
+    await runProgress(progressMessage);
+    const extractor = llm.withStructuredOutput(outputSchema);
 
     const promptPrefix = [
       "You are an expert career profile extraction engine.",
-
       "Your task is to extract structured user profile data strictly from the provided document text.",
-
       "STRICT RULES:",
       "- Extract only information that is explicitly stated in the document.",
       "- Do NOT infer, assume, or generate any missing information.",
       "- Never invent schools, employers, projects, dates, achievements, certifications, links, grades, or skills.",
       '- If a value is not clearly provided, return an empty string "" or an empty array [].',
       "- Always ensure required identifiers are non-empty when the item exists (e.g., school, company, title, project name, skill name, certification name). If the item cannot be confidently identified, omit the entire item instead of guessing.",
-
+      "- if there is a resume in the Document context, makre sure capture all infoamtion from the resume.",
       "DATE FORMATTING:",
       '- Use "YYYY-MM" when both year and month are available.',
       '- Use "YYYY" when only the year is available.',
       '- Use "" if no valid date is found.',
-
       "OUTPUT FORMAT:",
       "- Return ONLY a valid JSON object.",
       "- Do not include explanations, comments, or extra text.",
       "- Ensure the output strictly matches the required schema provided separately.",
-
-      "FIELD EXTRACTION GUIDELINES:",
-      "- Personal Info: Extract direct contact and identity details only (no assumptions).",
-      "- Preferences: Only include if explicitly mentioned (e.g., desired roles, locations, salary).",
-      "- Education: Include formal education entries only.",
-      "- Work Experience: Include professional roles with clear company and title.",
-      "- Projects: Include only clearly defined projects (academic, personal, or professional).",
-
-      "- Skills:",
-      "  - Extract generalizable knowledge areas, not overly specific fragments.",
-      "  - Skills can include programming languages, frameworks, tools and platforms.",
-      "  - Avoid too specific, like, if user have a lot of mechine learning skill, only mention mechine learning",
-      '  - Normalize similar skills where appropriate (e.g., "React.js" → "React").',
-
-      "- Certifications:",
-      "  - Include only formally named certifications with a clear issuer when available.",
-
-      "- Achievements & Descriptions:",
-      "  - Keep text concise and directly grounded in the source.",
-      "  - Do not paraphrase beyond recognition or introduce new meaning.",
-
+      "TARGET FIELDS FOR THIS NODE:",
+      ...focusGuidelines,
+      "Achievements & descriptions should stay concise and grounded in source text.",
       "FINAL CHECK:",
       "- Ensure JSON validity (no trailing commas, correct structure).",
       "- Ensure no hallucinated or unsupported data is present.",
-
       "Document context:",
     ].join("\n\n");
 
@@ -614,9 +620,7 @@ export async function generateUserInformationProfile({
         throw error;
       }
 
-      await runProgress(
-        "Initial extraction timed out; retrying with a compressed document context...",
-      );
+      await runProgress(timeoutProgressMessage);
       try {
         extracted = await extractor.invoke(
           `${promptPrefix}\n\n\"${fallbackContext}\"`,
@@ -632,7 +636,82 @@ export async function generateUserInformationProfile({
       }
     }
 
-    const extractedProfile = sanitizeManualProfile(extracted || emptyProfile());
+    return sanitizeManualProfile(extracted || {});
+  };
+
+  const extractPersonalPreferencesEducation = async (
+    state: typeof GraphState.State,
+  ) => {
+    const extractedPersonalPreferencesEducation = await extractProfileSegment({
+      state,
+      outputSchema: extractPersonalPreferencesEducationOutputSchema,
+      progressMessage:
+        "Extracting Personal Info, Preferences, and Education in parallel...",
+      timeoutProgressMessage:
+        "Personal/Preferences/Education extraction timed out; retrying with a compressed document context...",
+      focusGuidelines: [
+        "- Personal Info: Extract direct contact and identity details only (no assumptions).",
+        "- Personal Info: Write personalInfo.summary as a concise job-hunting summary grounded in explicit evidence.",
+        "- Preferences: Only include if explicitly mentioned (e.g., desired roles, locations, salary).",
+        "- Education: Include formal education entries only.",
+        '- Education: Always include the "description" field for each education item (use "" when no evidence is available).',
+      ],
+    });
+    return { extractedPersonalPreferencesEducation };
+  };
+
+  const extractWorkExperienceProjects = async (
+    state: typeof GraphState.State,
+  ) => {
+    const extractedWorkExperienceProjects = await extractProfileSegment({
+      state,
+      outputSchema: extractWorkExperienceProjectsOutputSchema,
+      progressMessage: "Extracting Work Experience and Projects in parallel...",
+      timeoutProgressMessage:
+        "Work Experience/Projects extraction timed out; retrying with a compressed document context...",
+      focusGuidelines: [
+        "- Work Experience: Include professional roles with clear company and title.",
+        "- Work Experience: if no explicit description, summarize the related projects as work experience description.",
+        "- Projects: Include only clearly defined projects (academic, personal, or professional).",
+      ],
+    });
+    return { extractedWorkExperienceProjects };
+  };
+
+  const extractSkillsCertifications = async (
+    state: typeof GraphState.State,
+  ) => {
+    const extractedSkillsCertifications = await extractProfileSegment({
+      state,
+      outputSchema: extractSkillsCertificationsOutputSchema,
+      progressMessage: "Extracting Skills and Certifications in parallel...",
+      timeoutProgressMessage:
+        "Skills/Certifications extraction timed out; retrying with a compressed document context...",
+      focusGuidelines: [
+        "- Skills: Extract generalizable knowledge areas, not overly specific fragments.",
+        "- Skills can include programming languages, frameworks, tools, and platforms.",
+        "- Avoid too specific entries. For example, if multiple similar ML skills appear, keep a normalized broader skill where appropriate.",
+        '- Normalize similar skills where appropriate (e.g., "React.js" -> "React").',
+        "- Certifications: Include only formally named certifications with a clear issuer when available.",
+      ],
+    });
+    return { extractedSkillsCertifications };
+  };
+
+  const combineParallelExtractions = async (state: typeof GraphState.State) => {
+    await runProgress("Combining parallel extraction outputs...");
+    let extractedProfile = mergeProfile(
+      emptyProfile(),
+      state.extractedPersonalPreferencesEducation || emptyProfile(),
+    );
+    extractedProfile = mergeProfile(
+      extractedProfile,
+      state.extractedWorkExperienceProjects || emptyProfile(),
+    );
+    extractedProfile = mergeProfile(
+      extractedProfile,
+      state.extractedSkillsCertifications || emptyProfile(),
+    );
     return { extractedProfile };
   };
 
@@ -655,12 +734,26 @@ export async function generateUserInformationProfile({
 
   const graph = new StateGraph(GraphState)
     .addNode("prepareDocuments", prepareDocuments)
-    .addNode("extractProfile", extractProfile)
+    .addNode(
+      "extractPersonalPreferencesEducation",
+      extractPersonalPreferencesEducation,
+    )
+    .addNode("extractWorkExperienceProjects", extractWorkExperienceProjects)
+    .addNode("extractSkillsCertifications", extractSkillsCertifications)
+    .addNode("combineParallelExtractions", combineParallelExtractions)
     .addNode("mergeWithCurrentProfile", mergeWithCurrentProfile)
     .addNode("validateProfile", validateProfile)
     .addEdge(START, "prepareDocuments")
-    .addEdge("prepareDocuments", "extractProfile")
-    .addEdge("extractProfile", "mergeWithCurrentProfile")
+    .addEdge("prepareDocuments", "extractPersonalPreferencesEducation")
+    .addEdge("prepareDocuments", "extractWorkExperienceProjects")
+    .addEdge("prepareDocuments", "extractSkillsCertifications")
+    .addEdge(
+      "extractPersonalPreferencesEducation",
+      "combineParallelExtractions",
+    )
+    .addEdge("extractWorkExperienceProjects", "combineParallelExtractions")
+    .addEdge("extractSkillsCertifications", "combineParallelExtractions")
+    .addEdge("combineParallelExtractions", "mergeWithCurrentProfile")
     .addEdge("mergeWithCurrentProfile", "validateProfile")
     .addEdge("validateProfile", END)
     .compile();
@@ -669,6 +762,9 @@ export async function generateUserInformationProfile({
     currentManualProfile: safeCurrent,
     documents: safeDocuments,
     preparedDocuments: [],
+    extractedPersonalPreferencesEducation: emptyProfile(),
+    extractedWorkExperienceProjects: emptyProfile(),
+    extractedSkillsCertifications: emptyProfile(),
     extractedProfile: emptyProfile(),
     generatedManualProfile: safeCurrent,
   });
