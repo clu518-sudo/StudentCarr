@@ -2,15 +2,23 @@ import {
   idParamsSchema,
   applicationIdParamsSchema,
   confirmReplySchema,
+  deleteApplicationsSchema,
+  gmailCallbackQuerySchema,
   validate,
 } from "./pt.schemas.js";
 import {
+  createGmailConnectSessionForUser,
+  deleteApplicationsForUser,
+  disconnectGmailForUser,
+  getGmailConnectionStatusForUser,
   listApplicationsForUser,
   listEmailsForApplication,
   getEmailDetailById,
   getInviteReplyDraftByEmailId,
   confirmInviteReplySend,
+  syncProgressTrackingForUser,
 } from "./pt.service.js";
+import { handleGmailOAuthCallback } from "./pt.gmail.js";
 
 const formatZodError = (error) => {
   if (!error?.issues) {
@@ -31,10 +39,23 @@ const listApplications = async (req, res, next) => {
   }
 };
 
+const deleteApplications = async (req, res, next) => {
+  try {
+    const payload = validate(deleteApplicationsSchema, req.body || {});
+    const result = await deleteApplicationsForUser(req.user.id, payload.applicationIds);
+    return res.json({ success: true, data: result });
+  } catch (error) {
+    if (error.name === "ZodError") {
+      return res.status(400).json({ success: false, error: formatZodError(error) });
+    }
+    return next(error);
+  }
+};
+
 const listApplicationEmails = async (req, res, next) => {
   try {
     const { applicationId } = validate(applicationIdParamsSchema, req.params);
-    const result = await listEmailsForApplication(applicationId);
+    const result = await listEmailsForApplication(req.user.id, applicationId);
     return res.json({ success: true, data: result });
   } catch (error) {
     if (error.name === "ZodError") {
@@ -47,7 +68,7 @@ const listApplicationEmails = async (req, res, next) => {
 const getEmailDetail = async (req, res, next) => {
   try {
     const { id } = validate(idParamsSchema, req.params);
-    const result = await getEmailDetailById(id);
+    const result = await getEmailDetailById(req.user.id, id);
     return res.json({ success: true, data: result });
   } catch (error) {
     if (error.name === "ZodError") {
@@ -60,7 +81,7 @@ const getEmailDetail = async (req, res, next) => {
 const getInviteReplyDraft = async (req, res, next) => {
   try {
     const { id } = validate(idParamsSchema, req.params);
-    const result = await getInviteReplyDraftByEmailId(id);
+    const result = await getInviteReplyDraftByEmailId(req.user.id, id);
     return res.json({ success: true, data: result });
   } catch (error) {
     if (error.name === "ZodError") {
@@ -84,10 +105,62 @@ const confirmInviteReply = async (req, res, next) => {
   }
 };
 
+const getGmailStatus = async (req, res, next) => {
+  try {
+    const result = await getGmailConnectionStatusForUser(req.user.id);
+    return res.json({ success: true, data: result });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const createGmailConnectSession = async (req, res, next) => {
+  try {
+    const result = await createGmailConnectSessionForUser(req.user);
+    return res.json({ success: true, data: result });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const gmailOauthCallback = async (req, res, next) => {
+  try {
+    const query = validate(gmailCallbackQuerySchema, req.query || {});
+    const result = await handleGmailOAuthCallback(query);
+    return res.redirect(result.redirectUrl);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const disconnectGmail = async (req, res, next) => {
+  try {
+    const result = await disconnectGmailForUser(req.user.id);
+    return res.json({ success: true, data: result });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const syncProgressTracking = async (req, res, next) => {
+  try {
+    const result = await syncProgressTrackingForUser(req.user.id);
+    return res.json({ success: true, data: result });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 export {
+  createGmailConnectSession,
+  deleteApplications,
   listApplications,
   listApplicationEmails,
   getEmailDetail,
   getInviteReplyDraft,
   confirmInviteReply,
+  disconnectGmail,
+  getGmailStatus,
+  gmailOauthCallback,
+  syncProgressTracking,
 };

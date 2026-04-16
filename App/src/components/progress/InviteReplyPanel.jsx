@@ -17,15 +17,15 @@ const InviteReplyPanel = ({
     <div className="card">
       <div className="mb-4">
         <h2 className="text-lg font-semibold text-gray-900">
-          AI Reply Draft (Mock)
+          AI Reply Draft
         </h2>
         <p className="text-sm text-gray-600">
-          Edit the draft before confirming the dummy send action.
+          Edit the draft before confirming the Gmail send action.
         </p>
       </div>
 
       {loadingDraft ? (
-        <p className="text-sm text-gray-600">Generating mock draft...</p>
+        <p className="text-sm text-gray-600">Generating draft...</p>
       ) : (
         <div className="space-y-4">
           <textarea
@@ -41,7 +41,7 @@ const InviteReplyPanel = ({
               onClick={onConfirm}
               disabled={confirming || !draftText.trim()}
             >
-              {confirming ? "Confirming..." : "Confirm Mock Send"}
+              {confirming ? "Sending..." : "Confirm And Send"}
             </button>
             {confirmationMessage ? (
               <p className="text-sm text-green-700">{confirmationMessage}</p>

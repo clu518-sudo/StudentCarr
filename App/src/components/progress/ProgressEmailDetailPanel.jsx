@@ -30,6 +30,27 @@ const ProgressEmailDetailPanel = ({ email, loading }) => {
           <span className="font-medium text-gray-700">Date:</span>{" "}
           {new Date(email.date).toLocaleString()}
         </p>
+        {email.summary ? (
+          <p className="text-sm text-gray-700">
+            <span className="font-medium text-gray-900">Summary:</span> {email.summary}
+          </p>
+        ) : null}
+        {(email.companyName || email.positionTitle || email.contactEmail) ? (
+          <div className="grid grid-cols-1 gap-2 text-sm text-gray-700 md:grid-cols-3">
+            <p>
+              <span className="font-medium text-gray-900">Company:</span>{" "}
+              {email.companyName || "-"}
+            </p>
+            <p>
+              <span className="font-medium text-gray-900">Position:</span>{" "}
+              {email.positionTitle || "-"}
+            </p>
+            <p>
+              <span className="font-medium text-gray-900">Contact:</span>{" "}
+              {email.contactEmail || email.senderEmail || "-"}
+            </p>
+          </div>
+        ) : null}
       </div>
       <div className="pt-4">
         <pre className="whitespace-pre-wrap text-sm text-gray-800 font-sans">

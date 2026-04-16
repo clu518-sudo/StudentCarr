@@ -24,6 +24,11 @@ model User {
   auditLogs       AuthAuditLog[]
   profile         UserProfile?
   profileDocuments ProfileDocument[]
+  gmailAccount    GmailAccount?
+  gmailOAuthStates GmailOAuthState[]
+  progressApplications ProgressApplication[]
+  progressEmails  ProgressEmail[]
+  progressReplies ProgressEmailReply[]
 
   @@map("users")
 }
@@ -203,4 +208,168 @@ model ProfileDocument {
   @@index([documentType])
   @@index([parserStatus])
   @@map("profile_documents")
+}
+
+model GmailAccount {
+  id                    String                @id @default(uuid())
+  userId                String                @unique @map("user_id")
+  googleSub             String                @unique @map("google_sub")
+  googleEmail           String                @map("google_email")
+  displayName           String?               @map("display_name")
+  scope                 String?
+  accessTokenEncrypted  String?               @map("access_token_encrypted")
+  refreshTokenEncrypted String?               @map("refresh_token_encrypted")
+  tokenType             String?               @map("token_type")
+  expiresAt             DateTime?             @map("expires_at")
+  connectedAt           DateTime              @default(now()) @map("connected_at")
+  lastVerifiedAt        DateTime?             @map("last_verified_at")
+  lastSyncedAt          DateTime?             @map("last_synced_at")
+  isActive              Boolean               @default(true) @map("is_active")
+  createdAt             DateTime              @default(now()) @map("created_at")
+  updatedAt             DateTime              @updatedAt @map("updated_at")
+  user                  User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  syncState             GmailSyncState?
+  applications          ProgressApplication[]
+  emails                ProgressEmail[]
+
+  @@index([googleEmail])
+  @@map("gmail_accounts")
+}
+
+model GmailOAuthState {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  stateHash String   @unique @map("state_hash")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("gmail_oauth_states")
+}
+
+model GmailSyncState {
+  id                    String       @id @default(uuid())
+  gmailAccountId        String       @unique @map("gmail_account_id")
+  lastSyncStatus        String       @default("idle") @map("last_sync_status")
+  lastSyncStartedAt     DateTime?    @map("last_sync_started_at")
+  lastSyncCompletedAt   DateTime?    @map("last_sync_completed_at")
+  lastSyncError         String?      @map("last_sync_error")
+  firstSyncCompletedAt  DateTime?    @map("first_sync_completed_at")
+  lastHistoryId         String?      @map("last_history_id")
+  createdAt             DateTime     @default(now()) @map("created_at")
+  updatedAt             DateTime     @updatedAt @map("updated_at")
+  gmailAccount          GmailAccount @relation(fields: [gmailAccountId], references: [id], onDelete: Cascade)
+
+  @@map("gmail_sync_states")
+}
+
+model ProgressApplication {
+  id                      String        @id @default(uuid())
+  userId                  String        @map("user_id")
+  gmailAccountId          String?       @map("gmail_account_id")
+  companyName             String        @map("company_name")
+  companyNameNormalized   String        @map("company_name_normalized")
+  positionTitle           String        @map("position_title")
+  positionTitleNormalized String        @map("position_title_normalized")
+  contactEmail            String?       @map("contact_email")
+  status                  String        @default("under_review")
+  statusSourceEmailId     String?       @map("status_source_email_id")
+  lastUpdatedAt           DateTime      @default(now()) @map("last_updated_at")
+  createdAt               DateTime      @default(now()) @map("created_at")
+  updatedAt               DateTime      @updatedAt @map("updated_at")
+  user                    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gmailAccount            GmailAccount? @relation(fields: [gmailAccountId], references: [id], onDelete: SetNull)
+  emails                  ProgressEmail[]
+
+  @@unique([userId, companyNameNormalized, positionTitleNormalized])
+  @@index([userId, status])
+  @@index([gmailAccountId])
+  @@map("progress_applications")
+}
+
+model ProgressEmail {
+  id              String                    @id @default(uuid())
+  userId          String                    @map("user_id")
+  gmailAccountId  String                    @map("gmail_account_id")
+  applicationId   String?                   @map("application_id")
+  gmailMessageId  String                    @map("gmail_message_id")
+  gmailThreadId   String?                   @map("gmail_thread_id")
+  gmailHistoryId  String?                   @map("gmail_history_id")
+  subject         String
+  sender          String
+  senderEmail     String?                   @map("sender_email")
+  recipients      Json?
+  ccRecipients    Json?                     @map("cc_recipients")
+  bccRecipients   Json?                     @map("bcc_recipients")
+  snippet         String?
+  labelIds        Json?                     @map("label_ids")
+  rawHeaders      Json?                     @map("raw_headers")
+  rawBodyText     String?                   @map("raw_body_text")
+  rawBodyHtml     String?                   @map("raw_body_html")
+  receivedAt      DateTime?                 @map("received_at")
+  sentAt          DateTime?                 @map("sent_at")
+  isUnread        Boolean                   @default(true) @map("is_unread")
+  isRelevant      Boolean?                  @map("is_relevant")
+  processingStage String                    @default("discovered") @map("processing_stage")
+  aiProcessedAt   DateTime?                 @map("ai_processed_at")
+  needsReplyDraft Boolean                   @default(false) @map("needs_reply_draft")
+  replyRequiredAt DateTime?                 @map("reply_required_at")
+  createdAt       DateTime                  @default(now()) @map("created_at")
+  updatedAt       DateTime                  @updatedAt @map("updated_at")
+  user            User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gmailAccount    GmailAccount              @relation(fields: [gmailAccountId], references: [id], onDelete: Cascade)
+  application     ProgressApplication?      @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  intelligence    ProgressEmailIntelligence?
+  replies         ProgressEmailReply[]
+
+  @@unique([gmailAccountId, gmailMessageId])
+  @@index([userId, applicationId])
+  @@index([gmailAccountId, receivedAt])
+  @@index([gmailThreadId])
+  @@map("progress_emails")
+}
+
+model ProgressEmailIntelligence {
+  id                         String        @id @default(uuid())
+  emailId                    String        @unique @map("email_id")
+  summary                    String?
+  intent                     String        @default("unknown")
+  companyName                String?       @map("company_name")
+  positionTitle              String?       @map("position_title")
+  contactEmail               String?       @map("contact_email")
+  confidence                 Float?
+  needsReplyDraft            Boolean       @default(false) @map("needs_reply_draft")
+  suggestedApplicationStatus String?       @map("suggested_application_status")
+  reviewNotes                String?       @map("review_notes")
+  extractedAt                DateTime      @default(now()) @map("extracted_at")
+  createdAt                  DateTime      @default(now()) @map("created_at")
+  updatedAt                  DateTime      @updatedAt @map("updated_at")
+  email                      ProgressEmail @relation(fields: [emailId], references: [id], onDelete: Cascade)
+
+  @@index([intent])
+  @@map("progress_email_intelligence")
+}
+
+model ProgressEmailReply {
+  id            String        @id @default(uuid())
+  userId        String        @map("user_id")
+  emailId       String        @map("email_id")
+  status        String        @default("drafted")
+  draftText     String        @map("draft_text")
+  reviewedText  String?       @map("reviewed_text")
+  sentMessageId String?       @map("sent_message_id")
+  sentThreadId  String?       @map("sent_thread_id")
+  errorMessage  String?       @map("error_message")
+  confirmedAt   DateTime?     @map("confirmed_at")
+  sentAt        DateTime?     @map("sent_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email         ProgressEmail @relation(fields: [emailId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([emailId, createdAt])
+  @@map("progress_email_replies")
 }

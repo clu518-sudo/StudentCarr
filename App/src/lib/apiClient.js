@@ -225,8 +225,25 @@ export const profileManagementApi = {
 };
 
 export const progressTrackingApi = {
+  getGmailStatus: (token) =>
+    apiRequest("/process-tracking/gmail/status", { method: "GET" }, token),
+  connectGmail: (token) =>
+    apiRequest("/process-tracking/gmail/connect", { method: "POST" }, token),
+  disconnectGmail: (token) =>
+    apiRequest("/process-tracking/gmail/connect", { method: "DELETE" }, token),
+  syncMailbox: (token) =>
+    apiRequest("/process-tracking/sync", { method: "POST" }, token),
   listApplications: (token) =>
     apiRequest("/process-tracking/applications", { method: "GET" }, token),
+  deleteApplications: (applicationIds, token) =>
+    apiRequest(
+      "/process-tracking/applications",
+      {
+        method: "DELETE",
+        body: { applicationIds },
+      },
+      token,
+    ),
   listApplicationEmails: (applicationId, token) =>
     apiRequest(
       `/process-tracking/applications/${applicationId}/emails`,

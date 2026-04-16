@@ -20,9 +20,12 @@ const statusLabel = {
 const ProgressApplicationItem = ({
   application,
   isExpanded,
+  isSelected,
   emails,
   loadingEmails,
   selectedEmailId,
+  deleting,
+  onToggleSelect,
   onToggleExpand,
   onSelectEmail,
 }) => (
@@ -33,11 +36,22 @@ const ProgressApplicationItem = ({
       className="w-full px-4 py-4 text-left hover:bg-gray-50 transition-colors"
     >
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">
-            {application.companyName}
-          </h3>
-          <p className="text-sm text-gray-600">{application.positionTitle}</p>
+        <div className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            disabled={deleting}
+            onChange={(event) => onToggleSelect(event.target.checked)}
+            onClick={(event) => event.stopPropagation()}
+            className="mt-1 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            aria-label={`Select ${application.companyName} ${application.positionTitle}`}
+          />
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">
+              {application.companyName}
+            </h3>
+            <p className="text-sm text-gray-600">{application.positionTitle}</p>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 md:justify-end">
           <span

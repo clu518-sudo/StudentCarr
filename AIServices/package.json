@@ -3,14 +3,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx src/generate_user_infomation.ts",
-    "start": "tsx src/generate_user_infomation.ts",
+    "dev": "tsx src/server.ts",
+    "start": "tsx src/server.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@langchain/langgraph": "^1.0.0",
     "@langchain/openai": "^1.0.0",
     "dotenv": "^16.6.1",
+    "googleapis": "^171.4.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {
