@@ -223,3 +223,31 @@ export const profileManagementApi = {
     }
   },
 };
+
+export const progressTrackingApi = {
+  listApplications: (token) =>
+    apiRequest("/process-tracking/applications", { method: "GET" }, token),
+  listApplicationEmails: (applicationId, token) =>
+    apiRequest(
+      `/process-tracking/applications/${applicationId}/emails`,
+      { method: "GET" },
+      token,
+    ),
+  getEmailDetail: (emailId, token) =>
+    apiRequest(`/process-tracking/emails/${emailId}`, { method: "GET" }, token),
+  getInviteReplyDraft: (emailId, token) =>
+    apiRequest(
+      `/process-tracking/emails/${emailId}/reply-draft`,
+      { method: "GET" },
+      token,
+    ),
+  confirmInviteReply: ({ emailId, draftText }, token) =>
+    apiRequest(
+      `/process-tracking/emails/${emailId}/reply-confirm`,
+      {
+        method: "POST",
+        body: { draftText },
+      },
+      token,
+    ),
+};
