@@ -25,6 +25,32 @@ const TERMINAL_STATUSES = new Set(["offer", "rejected"]);
 const normalizeText = (value) =>
   typeof value === "string" ? value.trim() : "";
 
+const formatDraftEmailText = (value) => {
+  const normalized = typeof value === "string" ? value.replace(/\r\n/g, "\n").trim() : "";
+  if (!normalized) {
+    return "";
+  }
+
+  const withStructuralBreaks = normalized
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/^Subject:[^\n]*\n*/im, "")
+    .replace(/([.!?])\s+(Dear\b)/g, "$1\n\n$2")
+    .replace(/([.!?])\s+(I look forward\b)/g, "$1\n\n$2")
+    .replace(/([.!?])\s+(I will\b)/g, "$1\n\n$2")
+    .replace(/([.!?])\s+(Best regards,?\b)/g, "$1\n\n$2")
+    .replace(/([.!?])\s+(Kind regards,?\b)/g, "$1\n\n$2")
+    .replace(/([.!?])\s+(Sincerely,?\b)/g, "$1\n\n$2")
+    .replace(/([.!?])\s+(Thanks again,?\b)/g, "$1\n\n$2")
+    .replace(/(Best regards,?|Kind regards,?|Sincerely,?|Regards,?)\s+([A-Z][A-Za-z' -]+)$/m, "$1\n$2");
+
+  const lines = withStructuralBreaks
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line, index, allLines) => line || allLines[index - 1] !== "");
+
+  return lines.join("\n");
+};
+
 const normalizeKey = (value) =>
   normalizeText(value)
     .toLowerCase()
@@ -838,10 +864,13 @@ const getInviteReplyDraftByEmailId = async (userId, emailId) => {
     orderBy: { createdAt: "desc" },
   });
   if (latestReply?.draftText) {
+    const formattedDraft = formatDraftEmailText(
+      latestReply.reviewedText || latestReply.draftText,
+    );
     return {
       draft: {
         emailId: rootEmail.id,
-        draftText: latestReply.reviewedText || latestReply.draftText,
+        draftText: formattedDraft,
         source: "langgraph-ai",
         editable: true,
         status: latestReply.status,
@@ -873,7 +902,7 @@ const getInviteReplyDraftByEmailId = async (userId, emailId) => {
     conversationMessages,
   });
 
-  const draftText = normalizeText(aiDraft?.draftText);
+  const draftText = formatDraftEmailText(aiDraft?.draftText);
   if (!draftText) {
     throw createHttpError("AI service returned an empty invite reply draft.", 502);
   }
@@ -906,7 +935,7 @@ const confirmInviteReplySend = async (userId, emailId, draftText) => {
     throw createHttpError("Only invite emails can be confirmed for reply", 400);
   }
 
-  const trimmedDraft = normalizeText(draftText);
+  const trimmedDraft = formatDraftEmailText(draftText);
   if (!trimmedDraft) {
     throw createHttpError("Draft text is required", 400);
   }

@@ -193,6 +193,40 @@ const GraphState = Annotation.Root({
 const normalizeText = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
 
+const formatDraftEmailText = (value: string) => {
+  const normalized = value.replace(/\r\n/g, "\n").trim();
+  if (!normalized) {
+    return "";
+  }
+
+  const withStructuralBreaks = normalized
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/^Subject:[^\n]*\n*/im, "")
+    .replace(/([.!?])\s+(Dear\b)/g, "$1\n\n$2")
+    .replace(/([.!?])\s+(I look forward\b)/g, "$1\n\n$2")
+    .replace(/([.!?])\s+(I will\b)/g, "$1\n\n$2")
+    .replace(/([.!?])\s+(Best regards,?\b)/g, "$1\n\n$2")
+    .replace(/([.!?])\s+(Kind regards,?\b)/g, "$1\n\n$2")
+    .replace(/([.!?])\s+(Sincerely,?\b)/g, "$1\n\n$2")
+    .replace(/([.!?])\s+(Thanks again,?\b)/g, "$1\n\n$2")
+    .replace(/(Best regards,?|Kind regards,?|Sincerely,?|Regards,?)\s+([A-Z][A-Za-z' -]+)$/m, "$1\n$2");
+
+  const lines = withStructuralBreaks
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line, index, allLines) => line || allLines[index - 1] !== "");
+
+  return lines.join("\n");
+};
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 const normalizeKey = (value: unknown) =>
   normalizeText(value)
     .toLowerCase()
@@ -567,6 +601,11 @@ const generateReplyDraftWithModel = async (
   const prompt = [
     "Write a concise, polite professional email reply.",
     "The reply must be ready for human review and editing.",
+    "Return plain text only.",
+    "Format the reply as a real email with line breaks.",
+    "Do not include a subject line in the reply body.",
+    "Use this structure exactly when appropriate: greeting, blank line, short body paragraphs, blank line, sign-off, sender name.",
+    'Keep each section on its own line. Example structure: "Dear ...,", then body paragraphs, then "Best regards,", then the sender name.',
     "Do not invent availability or scheduling details unless they are explicitly present in the source email.",
     "Keep the tone warm and professional.",
     `User full name: ${payload.user.fullName}`,
@@ -582,7 +621,7 @@ const generateReplyDraftWithModel = async (
   ].join("\n\n");
 
   const result = await drafter.invoke(prompt);
-  return result.draftText;
+  return formatDraftEmailText(result.draftText);
 };
 
 const createReplyMime = ({
@@ -600,6 +639,7 @@ const createReplyMime = ({
   inReplyTo?: string;
   referencesHeader?: string[];
 }) => {
+  const normalizedBody = formatDraftEmailText(body);
   const headers = [
     `From: ${from}`,
     `To: ${to}`,
@@ -621,7 +661,7 @@ const createReplyMime = ({
     }
   }
 
-  return Buffer.from(`${headers.join("\r\n")}\r\n\r\n${body}`)
+  return Buffer.from(`${headers.join("\r\n")}\r\n\r\n${normalizedBody}`)
     .toString("base64")
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
