@@ -53,6 +53,18 @@ const replyDraftRequestSchema = z.object({
     companyName: z.string().trim().optional().default(""),
     positionTitle: z.string().trim().optional().default(""),
   }),
+  conversationMessages: z
+    .array(
+      z.object({
+        subject: z.string().trim().optional().default(""),
+        sender: z.string().trim().optional().default(""),
+        senderEmail: z.string().trim().optional().default(""),
+        date: z.string().trim().optional().default(""),
+        body: z.string().trim().optional().default(""),
+      }),
+    )
+    .optional()
+    .default([]),
 });
 
 const sendReplyRequestSchema = z.object({
@@ -67,6 +79,8 @@ const sendReplyRequestSchema = z.object({
     subject: z.string().trim().optional().default(""),
     body: z.string().trim().optional().default(""),
     draftText: z.string().trim().min(1),
+    inReplyTo: z.string().trim().optional().default(""),
+    referencesHeader: z.array(z.string().trim().min(1)).optional().default([]),
   }),
 });
 
@@ -111,6 +125,21 @@ type CandidateMessage = {
   labelIds: string[];
 };
 
+type ConversationMessage = {
+  gmailMessageId: string;
+  gmailThreadId: string;
+  subject: string;
+  sender: string;
+  senderEmail: string;
+  recipients: string[];
+  snippet: string;
+  rawBodyText: string;
+  rawBodyHtml: string;
+  receivedAt: string;
+  sentAt: string;
+  rfcMessageId: string;
+};
+
 type FullMessage = CandidateMessage & {
   ccRecipients: string[];
   bccRecipients: string[];
@@ -120,6 +149,13 @@ type FullMessage = CandidateMessage & {
   receivedAt: string;
   sentAt: string;
   isUnread: boolean;
+  rfcMessageId: string;
+  inReplyTo: string;
+  referencesHeader: string[];
+  parentGmailMessageId: string;
+  parentRfcMessageId: string;
+  threadPosition: number;
+  conversationMessages: ConversationMessage[];
 };
 
 type ProcessedMessage = FullMessage & {
@@ -135,6 +171,7 @@ const GraphState = Annotation.Root({
   gmailQuery: Annotation<string>,
   existingApplications: Annotation<ExistingApplication[]>,
   knownMessageIds: Annotation<Set<string>>,
+  pendingMessageIds: Annotation<Set<string>>,
   candidateMessages: Annotation<CandidateMessage[]>,
   relevantMessages: Annotation<CandidateMessage[]>,
   fullMessages: Annotation<FullMessage[]>,
@@ -205,6 +242,35 @@ const getHeaderValue = (
 ) =>
   headers?.find((header) => header.name?.toLowerCase() === name.toLowerCase())?.value || "";
 
+const normalizeMessageId = (value: string) => {
+  const trimmed = normalizeText(value);
+  if (!trimmed) {
+    return "";
+  }
+  const wrapped = trimmed.match(/<([^>]+)>/);
+  if (wrapped?.[1]) {
+    return wrapped[1].trim().toLowerCase();
+  }
+  return trimmed.replace(/^<|>$/g, "").trim().toLowerCase();
+};
+
+const parseReferencesHeader = (value: string) => {
+  const normalized = normalizeText(value);
+  if (!normalized) {
+    return [];
+  }
+  const tokenMatches = normalized.match(/<[^>]+>/g);
+  if (tokenMatches?.length) {
+    return tokenMatches
+      .map((entry) => normalizeMessageId(entry))
+      .filter(Boolean);
+  }
+  return normalized
+    .split(/\s+/)
+    .map((entry) => normalizeMessageId(entry))
+    .filter(Boolean);
+};
+
 const collectBodyParts = (
   part: gmail_v1.Schema$MessagePart | undefined,
   output: { text: string[]; html: string[] },
@@ -233,6 +299,149 @@ const extractMessageBodies = (payload: gmail_v1.Schema$MessagePart | undefined) 
   return {
     text: output.text.join("\n").trim(),
     html: output.html.join("\n").trim(),
+  };
+};
+
+const sortMessagesChronologically = <T extends { receivedAt: string; sentAt: string; gmailMessageId: string }>(
+  messages: T[],
+) =>
+  [...messages].sort((left, right) => {
+    const leftTime = new Date(left.receivedAt || left.sentAt || 0).getTime();
+    const rightTime = new Date(right.receivedAt || right.sentAt || 0).getTime();
+    if (leftTime !== rightTime) {
+      return leftTime - rightTime;
+    }
+    return left.gmailMessageId.localeCompare(right.gmailMessageId);
+  });
+
+const buildConversationMessages = (messages: FullMessage[]): ConversationMessage[] =>
+  sortMessagesChronologically(messages).map((message) => ({
+    gmailMessageId: message.gmailMessageId,
+    gmailThreadId: message.gmailThreadId,
+    subject: message.subject,
+    sender: message.sender,
+    senderEmail: message.senderEmail,
+    recipients: message.recipients,
+    snippet: message.snippet,
+    rawBodyText: message.rawBodyText,
+    rawBodyHtml: message.rawBodyHtml,
+    receivedAt: message.receivedAt,
+    sentAt: message.sentAt,
+    rfcMessageId: message.rfcMessageId,
+  }));
+
+const resolveThreadRelationships = (messages: FullMessage[]) => {
+  const sorted = sortMessagesChronologically(messages);
+  const byRfcMessageId = new Map<string, string>();
+
+  for (let index = 0; index < sorted.length; index += 1) {
+    const message = sorted[index];
+    const inReplyToId = normalizeMessageId(message.inReplyTo);
+    const references = Array.isArray(message.referencesHeader)
+      ? message.referencesHeader.map((value) => normalizeMessageId(value)).filter(Boolean)
+      : [];
+    let parentGmailMessageId = "";
+    let parentRfcMessageId = "";
+
+    if (inReplyToId && byRfcMessageId.has(inReplyToId)) {
+      parentGmailMessageId = byRfcMessageId.get(inReplyToId) || "";
+      parentRfcMessageId = inReplyToId;
+    }
+
+    if (!parentGmailMessageId && references.length) {
+      for (const referenceId of [...references].reverse()) {
+        if (byRfcMessageId.has(referenceId)) {
+          parentGmailMessageId = byRfcMessageId.get(referenceId) || "";
+          parentRfcMessageId = referenceId;
+          break;
+        }
+      }
+    }
+
+    if (!parentGmailMessageId && index > 0) {
+      // Deterministic fallback when reply headers are missing or malformed.
+      const fallbackParent = sorted[index - 1];
+      if (fallbackParent.gmailMessageId !== message.gmailMessageId) {
+        parentGmailMessageId = fallbackParent.gmailMessageId;
+        parentRfcMessageId = fallbackParent.rfcMessageId;
+      }
+    }
+
+    message.parentGmailMessageId = parentGmailMessageId;
+    message.parentRfcMessageId = parentRfcMessageId;
+    message.threadPosition = index + 1;
+
+    if (message.rfcMessageId) {
+      byRfcMessageId.set(message.rfcMessageId, message.gmailMessageId);
+    }
+  }
+
+  return sorted;
+};
+
+const toCandidateFallback = (message: gmail_v1.Schema$Message): CandidateMessage => {
+  const payload = message.payload;
+  const headers = payload?.headers || [];
+  return {
+    gmailMessageId: message.id || "",
+    gmailThreadId: message.threadId || "",
+    gmailHistoryId: String(message.historyId || ""),
+    subject: getHeaderValue(headers, "Subject"),
+    sender: getHeaderValue(headers, "From"),
+    senderEmail: parseEmailAddress(getHeaderValue(headers, "From")),
+    recipients: parseAddressList(getHeaderValue(headers, "To")),
+    snippet: message.snippet || "",
+    internalDate: message.internalDate || "",
+    labelIds: message.labelIds || [],
+  };
+};
+
+const toFullMessage = (
+  message: gmail_v1.Schema$Message,
+  fallback: CandidateMessage,
+): FullMessage => {
+  const payload = message.payload;
+  const headers = payload?.headers || [];
+  const bodies = extractMessageBodies(payload);
+  const sentAt = parseDate(getHeaderValue(headers, "Date"), "");
+  const receivedAt = parseDate(
+    message.internalDate ? new Date(Number(message.internalDate)).toISOString() : "",
+    sentAt,
+  );
+  const rawHeaders = headers.map((header) => ({
+    name: header.name || "",
+    value: header.value || "",
+  }));
+  const toRecipients = parseAddressList(getHeaderValue(headers, "To"));
+  const rfcMessageId = normalizeMessageId(getHeaderValue(headers, "Message-ID"));
+  const inReplyTo = normalizeMessageId(getHeaderValue(headers, "In-Reply-To"));
+  const referencesHeader = parseReferencesHeader(getHeaderValue(headers, "References"));
+
+  return {
+    ...fallback,
+    gmailMessageId: message.id || fallback.gmailMessageId,
+    gmailThreadId: message.threadId || fallback.gmailThreadId,
+    gmailHistoryId: String(message.historyId || fallback.gmailHistoryId || ""),
+    subject: getHeaderValue(headers, "Subject") || fallback.subject,
+    sender: getHeaderValue(headers, "From") || fallback.sender,
+    senderEmail: parseEmailAddress(getHeaderValue(headers, "From")) || fallback.senderEmail,
+    recipients: toRecipients.length ? toRecipients : fallback.recipients,
+    ccRecipients: parseAddressList(getHeaderValue(headers, "Cc")),
+    bccRecipients: parseAddressList(getHeaderValue(headers, "Bcc")),
+    rawHeaders,
+    rawBodyText: bodies.text,
+    rawBodyHtml: bodies.html,
+    receivedAt,
+    sentAt,
+    isUnread: (message.labelIds || []).includes("UNREAD"),
+    labelIds: message.labelIds || fallback.labelIds,
+    rfcMessageId,
+    inReplyTo,
+    referencesHeader,
+    parentGmailMessageId: "",
+    parentRfcMessageId: "",
+    threadPosition: 0,
+    conversationMessages: [],
   };
 };
 
@@ -285,23 +494,40 @@ const isLikelyRelevant = (candidate: CandidateMessage) => {
 
 const extractEmailIntelligence = async (
   llm: ChatOpenAI,
-  message: FullMessage,
+  conversationMessages: ConversationMessage[],
 ): Promise<Extraction> => {
   const extractor = llm.withStructuredOutput(extractionSchema);
+  const timeline = sortMessagesChronologically(
+    conversationMessages.map((message) => ({
+      ...message,
+      receivedAt: message.receivedAt || "",
+      sentAt: message.sentAt || "",
+    })),
+  )
+    .map((message, index) => {
+      const body = message.rawBodyText || message.rawBodyHtml || message.snippet;
+      return [
+        `Message ${index + 1}`,
+        `Date: ${message.receivedAt || message.sentAt || "unknown"}`,
+        `Subject: ${message.subject}`,
+        `From: ${message.sender}`,
+        `To: ${message.recipients.join(", ")}`,
+        "Body:",
+        body,
+      ].join("\n");
+    })
+    .join("\n\n---\n\n");
+
   const prompt = [
-    "You are extracting job-application email intelligence.",
-    "Return only facts supported by the email.",
+    "You are extracting job-application conversation intelligence from a Gmail thread.",
+    "Analyze the full conversation in chronological order and return only facts supported by the thread.",
     "Do not hallucinate company names, titles, times, or contact details.",
     'If uncertain, use empty strings or "unknown".',
-    "Summaries must be concise and useful for a frontend email list.",
-    "Mark needsReplyDraft true only when the email is clearly an interview or invitation that requires a human-reviewed response.",
-    "Email metadata:",
-    `Subject: ${message.subject}`,
-    `From: ${message.sender}`,
-    `To: ${message.recipients.join(", ")}`,
-    `Snippet: ${message.snippet}`,
-    "Email body:",
-    message.rawBodyText || message.rawBodyHtml || message.snippet,
+    "Summary must capture the thread-level latest meaningful state for frontend display.",
+    "Mark needsReplyDraft true only when the thread clearly contains an invitation or interview message that needs a human-reviewed reply.",
+    "Use the whole thread as evidence for companyName, positionTitle, contactEmail, intent, and suggestedApplicationStatus.",
+    "Conversation timeline:",
+    timeline || "No conversation messages available.",
   ].join("\n\n");
 
   return extractionSchema.parse(await extractor.invoke(prompt));
@@ -315,6 +541,19 @@ const generateReplyDraftWithModel = async (
     draftText: z.string().trim().min(1),
   });
   const drafter = llm.withStructuredOutput(draftSchema);
+  const conversationTimeline = (payload.conversationMessages || [])
+    .map((message, index) => {
+      const body = normalizeText(message.body) || "(no body)";
+      return [
+        `Message ${index + 1}`,
+        `Date: ${message.date || "unknown"}`,
+        `Subject: ${message.subject}`,
+        `From: ${message.sender}`,
+        body,
+      ].join("\n");
+    })
+    .join("\n\n---\n\n");
+
   const prompt = [
     "Write a concise, polite professional email reply.",
     "The reply must be ready for human review and editing.",
@@ -326,6 +565,8 @@ const generateReplyDraftWithModel = async (
     `Position: ${payload.email.positionTitle}`,
     `Original sender: ${payload.email.sender}`,
     `Original email subject: ${payload.email.subject}`,
+    "Conversation context in chronological order:",
+    conversationTimeline || "No prior conversation context provided.",
     "Original email body:",
     payload.email.body || payload.email.summary,
   ].join("\n\n");
@@ -339,11 +580,15 @@ const createReplyMime = ({
   to,
   subject,
   body,
+  inReplyTo,
+  referencesHeader,
 }: {
   from: string;
   to: string;
   subject: string;
   body: string;
+  inReplyTo?: string;
+  referencesHeader?: string[];
 }) => {
   const headers = [
     `From: ${from}`,
@@ -352,6 +597,19 @@ const createReplyMime = ({
     "Content-Type: text/plain; charset=utf-8",
     "MIME-Version: 1.0",
   ];
+  if (normalizeText(inReplyTo)) {
+    headers.push(`In-Reply-To: <${normalizeMessageId(inReplyTo || "")}>`);
+  }
+  if (Array.isArray(referencesHeader) && referencesHeader.length) {
+    const normalizedReferences = referencesHeader
+      .map((entry) => normalizeMessageId(entry))
+      .filter(Boolean)
+      .map((entry) => `<${entry}>`)
+      .join(" ");
+    if (normalizedReferences) {
+      headers.push(`References: ${normalizedReferences}`);
+    }
+  }
 
   return Buffer.from(`${headers.join("\r\n")}\r\n\r\n${body}`)
     .toString("base64")
@@ -366,6 +624,7 @@ const loadSyncContext = async (state: typeof GraphState.State) => {
     gmailQuery: isFirstSync ? GMAIL_FIRST_SYNC_QUERY : GMAIL_INCREMENTAL_QUERY,
     existingApplications: state.request.syncContext.applications || [],
     knownMessageIds: new Set(state.request.syncContext.knownMessageIds || []),
+    pendingMessageIds: new Set(state.request.syncContext.pendingMessageIds || []),
   };
 };
 
@@ -424,40 +683,75 @@ const filterRelevantMessages = async (state: typeof GraphState.State) => {
 const fetchFullMessages = async (state: typeof GraphState.State) => {
   const gmail = buildGmailClient(state.request.gmail.accessToken);
   const fullMessages: FullMessage[] = [];
+  const seenMessageIds = new Set<string>();
+  const visitedThreadIds = new Set<string>();
+
+  const pushThreadMessages = (threadMessages: gmail_v1.Schema$Message[]) => {
+    const parsedMessages = threadMessages
+      .map((threadMessage) => toFullMessage(threadMessage, toCandidateFallback(threadMessage)))
+      .filter((message) => Boolean(message.gmailMessageId));
+
+    if (!parsedMessages.length) {
+      return;
+    }
+
+    const resolvedMessages = resolveThreadRelationships(parsedMessages);
+    const conversationMessages = buildConversationMessages(resolvedMessages);
+
+    for (const message of resolvedMessages) {
+      if (seenMessageIds.has(message.gmailMessageId)) {
+        continue;
+      }
+      const isKnown = state.knownMessageIds.has(message.gmailMessageId);
+      const isPending = state.pendingMessageIds.has(message.gmailMessageId);
+      if (isKnown && !isPending) {
+        continue;
+      }
+      message.conversationMessages = conversationMessages;
+      fullMessages.push(message);
+      seenMessageIds.add(message.gmailMessageId);
+    }
+  };
 
   for (const candidate of state.relevantMessages) {
+    if (candidate.gmailThreadId && !visitedThreadIds.has(candidate.gmailThreadId)) {
+      visitedThreadIds.add(candidate.gmailThreadId);
+      try {
+        const threadResponse = await gmail.users.threads.get({
+          userId: "me",
+          id: candidate.gmailThreadId,
+          format: "full",
+        });
+        if (Array.isArray(threadResponse.data.messages) && threadResponse.data.messages.length) {
+          pushThreadMessages(threadResponse.data.messages);
+          continue;
+        }
+      } catch {
+        // Fallback to single-message fetch when thread retrieval fails.
+      }
+    }
+
+    if (seenMessageIds.has(candidate.gmailMessageId)) {
+      continue;
+    }
+
     const full = await gmail.users.messages.get({
       userId: "me",
       id: candidate.gmailMessageId,
       format: "full",
     });
-    const payload = full.data.payload;
-    const headers = payload?.headers || [];
-    const bodies = extractMessageBodies(payload);
-    const sentAt = parseDate(getHeaderValue(headers, "Date"), "");
-    const receivedAt = parseDate(
-      full.data.internalDate ? new Date(Number(full.data.internalDate)).toISOString() : "",
-      sentAt,
-    );
-
-    fullMessages.push({
-      ...candidate,
-      sender: getHeaderValue(headers, "From") || candidate.sender,
-      senderEmail: parseEmailAddress(getHeaderValue(headers, "From")) || candidate.senderEmail,
-      recipients: parseAddressList(getHeaderValue(headers, "To")) || candidate.recipients,
-      ccRecipients: parseAddressList(getHeaderValue(headers, "Cc")),
-      bccRecipients: parseAddressList(getHeaderValue(headers, "Bcc")),
-      rawHeaders: headers.map((header) => ({
-        name: header.name || "",
-        value: header.value || "",
-      })),
-      rawBodyText: bodies.text,
-      rawBodyHtml: bodies.html,
-      receivedAt,
-      sentAt,
-      isUnread: (full.data.labelIds || []).includes("UNREAD"),
-      labelIds: full.data.labelIds || candidate.labelIds,
-    });
+    const parsedSingle = toFullMessage(full.data, candidate);
+    const resolvedSingle = resolveThreadRelationships([parsedSingle]);
+    const conversationMessages = buildConversationMessages(resolvedSingle);
+    const enrichedMessage = resolvedSingle[0];
+    const isKnown = state.knownMessageIds.has(enrichedMessage.gmailMessageId);
+    const isPending = state.pendingMessageIds.has(enrichedMessage.gmailMessageId);
+    if (isKnown && !isPending) {
+      continue;
+    }
+    enrichedMessage.conversationMessages = conversationMessages;
+    fullMessages.push(enrichedMessage);
+    seenMessageIds.add(enrichedMessage.gmailMessageId);
   }
 
   return { fullMessages };
@@ -466,9 +760,23 @@ const fetchFullMessages = async (state: typeof GraphState.State) => {
 const extractAndPrepareMessages = async (state: typeof GraphState.State) => {
   const llm = buildModel();
   const processedMessages: ProcessedMessage[] = [];
+  const groupedByThread = new Map<string, FullMessage[]>();
 
   for (const message of state.fullMessages) {
-    const extraction = await extractEmailIntelligence(llm, message);
+    const groupKey = normalizeText(message.gmailThreadId) || message.gmailMessageId;
+    const group = groupedByThread.get(groupKey) || [];
+    group.push(message);
+    groupedByThread.set(groupKey, group);
+  }
+
+  for (const threadMessages of groupedByThread.values()) {
+    const sortedThreadMessages = sortMessagesChronologically(threadMessages);
+    const conversationMessages =
+      sortedThreadMessages[0]?.conversationMessages?.length
+        ? sortedThreadMessages[0].conversationMessages
+        : buildConversationMessages(sortedThreadMessages);
+
+    const extraction = await extractEmailIntelligence(llm, conversationMessages);
     const matchedApplication = state.existingApplications.find((application) => {
       const companyKey =
         normalizeKey(application.companyNameNormalized || application.companyName);
@@ -482,7 +790,10 @@ const extractAndPrepareMessages = async (state: typeof GraphState.State) => {
       );
     });
 
+    const rootMessages = sortedThreadMessages.filter((message) => !message.parentGmailMessageId);
+    const draftTargetRoot = rootMessages[0] || sortedThreadMessages[0];
     let draftReplyText = "";
+
     if (extraction.intent === "invite" && extraction.needsReplyDraft) {
       draftReplyText = await generateReplyDraftWithModel(llm, {
         user: {
@@ -490,25 +801,40 @@ const extractAndPrepareMessages = async (state: typeof GraphState.State) => {
           email: "",
         },
         email: {
-          subject: message.subject,
-          sender: message.sender,
-          senderEmail: message.senderEmail,
-          body: message.rawBodyText || message.rawBodyHtml || message.snippet,
+          subject: draftTargetRoot.subject,
+          sender: draftTargetRoot.sender,
+          senderEmail: draftTargetRoot.senderEmail,
+          body:
+            draftTargetRoot.rawBodyText ||
+            draftTargetRoot.rawBodyHtml ||
+            draftTargetRoot.snippet,
           summary: extraction.summary,
           companyName: extraction.companyName,
           positionTitle: extraction.positionTitle,
         },
+        conversationMessages: conversationMessages.map((message) => ({
+          subject: message.subject,
+          sender: message.sender,
+          senderEmail: message.senderEmail,
+          date: message.receivedAt || message.sentAt,
+          body: message.rawBodyText || message.rawBodyHtml || message.snippet,
+        })),
       });
     }
 
-    processedMessages.push({
-      ...message,
-      extraction,
-      matchedApplicationId: matchedApplication?.id || "",
-      draftReplyText,
-      processingStage: "persisted",
-      isRelevant: true,
-    });
+    for (const message of sortedThreadMessages) {
+      processedMessages.push({
+        ...message,
+        extraction,
+        matchedApplicationId: matchedApplication?.id || "",
+        draftReplyText:
+          message.gmailMessageId === draftTargetRoot.gmailMessageId
+            ? draftReplyText
+            : "",
+        processingStage: "persisted",
+        isRelevant: true,
+      });
+    }
   }
 
   return { processedMessages };
@@ -537,6 +863,7 @@ export const syncProgressTrackingMailbox = async (input: unknown) => {
     gmailQuery: "",
     existingApplications: [],
     knownMessageIds: new Set<string>(),
+    pendingMessageIds: new Set<string>(),
     candidateMessages: [],
     relevantMessages: [],
     fullMessages: [],
@@ -554,6 +881,12 @@ export const syncProgressTrackingMailbox = async (input: unknown) => {
       gmailMessageId: message.gmailMessageId,
       gmailThreadId: message.gmailThreadId,
       gmailHistoryId: message.gmailHistoryId,
+      rfcMessageId: message.rfcMessageId,
+      inReplyTo: message.inReplyTo,
+      referencesHeader: message.referencesHeader,
+      parentGmailMessageId: message.parentGmailMessageId,
+      parentRfcMessageId: message.parentRfcMessageId,
+      threadPosition: message.threadPosition,
       subject: message.subject,
       sender: message.sender,
       senderEmail: message.senderEmail,
@@ -592,6 +925,8 @@ export const sendInviteReply = async (input: unknown) => {
     to: payload.email.recipientEmail,
     subject: payload.email.subject,
     body: payload.email.draftText,
+    inReplyTo: payload.email.inReplyTo,
+    referencesHeader: payload.email.referencesHeader,
   });
 
   const response = await gmail.users.messages.send({

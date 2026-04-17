@@ -31,6 +31,34 @@ const normalizeKey = (value) =>
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 
+const normalizeMessageId = (value) => {
+  const trimmed = normalizeText(value);
+  if (!trimmed) {
+    return "";
+  }
+  const wrapped = trimmed.match(/<([^>]+)>/);
+  if (wrapped?.[1]) {
+    return wrapped[1].trim().toLowerCase();
+  }
+  return trimmed.replace(/^<|>$/g, "").trim().toLowerCase();
+};
+
+const normalizeReferencesHeader = (value) => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map((entry) => normalizeMessageId(entry)).filter(Boolean);
+};
+
+const shouldTreatAsRootMessage = (message) => {
+  const hasParentHint =
+    Boolean(normalizeText(message.parentGmailMessageId)) ||
+    Boolean(normalizeText(message.parentRfcMessageId)) ||
+    Boolean(normalizeText(message.inReplyTo)) ||
+    normalizeReferencesHeader(message.referencesHeader).length > 0;
+  return !hasParentHint;
+};
+
 const createHttpError = (message, statusCode = 500) => {
   const error = new Error(message);
   error.statusCode = statusCode;
@@ -51,6 +79,32 @@ const toDisplayDate = (email) =>
   toIsoDate(email.createdAt) ||
   new Date().toISOString();
 
+const toThreadTimestamp = (email) => {
+  const dateValue = toDisplayDate(email);
+  const parsed = new Date(dateValue).getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
+const toMessageBody = (email) =>
+  email.rawBodyText || email.rawBodyHtml || email.snippet || "";
+
+const sortEmailsChronologically = (emails) =>
+  [...emails].sort((left, right) => {
+    const threadPositionLeft =
+      typeof left.threadPosition === "number" ? left.threadPosition : Number.MAX_SAFE_INTEGER;
+    const threadPositionRight =
+      typeof right.threadPosition === "number" ? right.threadPosition : Number.MAX_SAFE_INTEGER;
+    if (threadPositionLeft !== threadPositionRight) {
+      return threadPositionLeft - threadPositionRight;
+    }
+    const leftTime = toThreadTimestamp(left);
+    const rightTime = toThreadTimestamp(right);
+    if (leftTime !== rightTime) {
+      return leftTime - rightTime;
+    }
+    return (left.id || "").localeCompare(right.id || "");
+  });
+
 const mapApplicationRecord = (application) => ({
   id: application.id,
   companyName: application.companyName,
@@ -66,9 +120,29 @@ const mapEmailListItem = (email) => ({
   subject: email.subject,
   date: toDisplayDate(email),
   intent: email.intelligence?.intent || "unknown",
+  replyCount:
+    typeof email._count?.childReplies === "number" ? email._count.childReplies : 0,
 });
 
-const mapEmailDetail = (email) => ({
+const mapEmailThreadReply = (email, depth = 1) => ({
+  id: email.id,
+  parentEmailId: email.parentEmailId || null,
+  depth,
+  sender: email.sender,
+  senderEmail: email.senderEmail || "",
+  subject: email.subject,
+  date: toDisplayDate(email),
+  intent: email.intelligence?.intent || "unknown",
+  body: toMessageBody(email),
+  summary: email.intelligence?.summary || "",
+  companyName: email.intelligence?.companyName || "",
+  positionTitle: email.intelligence?.positionTitle || "",
+  contactEmail: email.intelligence?.contactEmail || "",
+  threadPosition:
+    typeof email.threadPosition === "number" ? email.threadPosition : null,
+});
+
+const mapEmailDetail = (email, replies = []) => ({
   id: email.id,
   applicationId: email.applicationId,
   sender: email.sender,
@@ -76,11 +150,13 @@ const mapEmailDetail = (email) => ({
   subject: email.subject,
   date: toDisplayDate(email),
   intent: email.intelligence?.intent || "unknown",
-  body: email.rawBodyText || email.rawBodyHtml || email.snippet || "",
+  body: toMessageBody(email),
   summary: email.intelligence?.summary || "",
   companyName: email.intelligence?.companyName || "",
   positionTitle: email.intelligence?.positionTitle || "",
   contactEmail: email.intelligence?.contactEmail || "",
+  replyCount: replies.length,
+  replies,
 });
 
 const buildAiUrl = (path) => `${AI_BASE_URL}${path}`;
@@ -158,6 +234,88 @@ const ensureEmailBelongsToUser = async (userId, emailId) => {
   return email;
 };
 
+const resolveRootEmailForUser = async (userId, email) => {
+  let current = email;
+  const visited = new Set([email.id]);
+
+  while (current?.parentEmailId) {
+    const parent = await prisma.progressEmail.findFirst({
+      where: { id: current.parentEmailId, userId },
+      include: {
+        intelligence: true,
+      },
+    });
+    if (!parent || visited.has(parent.id)) {
+      break;
+    }
+    visited.add(parent.id);
+    current = parent;
+  }
+
+  return current;
+};
+
+const loadThreadReplyRecordsForRoot = async (userId, rootEmailId) => {
+  const allReplies = [];
+  const depthByEmailId = new Map([[rootEmailId, 0]]);
+  let parentIds = [rootEmailId];
+
+  while (parentIds.length) {
+    const childEmails = await prisma.progressEmail.findMany({
+      where: {
+        userId,
+        parentEmailId: {
+          in: parentIds,
+        },
+      },
+      include: {
+        intelligence: true,
+      },
+      orderBy: [
+        { threadPosition: "asc" },
+        { receivedAt: "asc" },
+        { sentAt: "asc" },
+        { createdAt: "asc" },
+      ],
+    });
+
+    if (!childEmails.length) {
+      break;
+    }
+
+    allReplies.push(...childEmails);
+    parentIds = childEmails.map((email) => email.id);
+    for (const childEmail of childEmails) {
+      const parentDepth = depthByEmailId.get(childEmail.parentEmailId || "") || 0;
+      depthByEmailId.set(childEmail.id, parentDepth + 1);
+    }
+  }
+
+  return {
+    orderedReplies: sortEmailsChronologically(allReplies),
+    depthByEmailId,
+  };
+};
+
+const loadThreadRepliesForRoot = async (userId, rootEmailId) => {
+  const { orderedReplies, depthByEmailId } = await loadThreadReplyRecordsForRoot(
+    userId,
+    rootEmailId,
+  );
+  return orderedReplies.map((reply) =>
+    mapEmailThreadReply(reply, depthByEmailId.get(reply.id) || 1),
+  );
+};
+
+const buildConversationMessagesForAi = (rootEmail, replyRows) =>
+  sortEmailsChronologically([rootEmail, ...replyRows]).map((message) => ({
+    subject: message.subject || "",
+    sender: message.sender || "",
+    senderEmail: message.senderEmail || "",
+    date: toDisplayDate(message),
+    body: toMessageBody(message),
+  }));
+
 const upsertApplicationForExtraction = async (tx, { userId, gmailAccountId, extraction, emailDate }) => {
   const normalizedCompany = normalizeKey(extraction?.companyName);
   const normalizedPosition = normalizeKey(extraction?.positionTitle);
@@ -224,6 +382,7 @@ const persistSyncPayload = async ({ userId, gmailAccountId, syncStateId, syncPay
   const messages = Array.isArray(syncPayload?.messages) ? syncPayload.messages : [];
   let processedMessages = 0;
   let upsertedApplications = 0;
+  const persistedEmailMetadata = [];
 
   await prisma.$transaction(async (tx) => {
     for (const rawMessage of messages) {
@@ -249,6 +408,22 @@ const persistSyncPayload = async ({ userId, gmailAccountId, syncStateId, syncPay
         upsertedApplications += 1;
       }
 
+      const matchedApplicationId = normalizeText(message.matchedApplicationId);
+      const matchedApplication = matchedApplicationId
+        ? await tx.progressApplication.findFirst({
+            where: {
+              id: matchedApplicationId,
+              userId,
+            },
+            select: { id: true },
+          })
+        : null;
+      const resolvedApplicationId = matchedApplication?.id || application?.id || null;
+
+      const normalizedRfcMessageId = normalizeMessageId(message.rfcMessageId);
+      const normalizedInReplyTo = normalizeMessageId(message.inReplyTo);
+      const normalizedReferencesHeader = normalizeReferencesHeader(message.referencesHeader);
+
       const emailRecord = await tx.progressEmail.upsert({
         where: {
           gmailAccountId_gmailMessageId: {
@@ -257,9 +432,16 @@ const persistSyncPayload = async ({ userId, gmailAccountId, syncStateId, syncPay
           },
         },
         update: {
-          applicationId: application?.id || null,
+          applicationId: resolvedApplicationId,
           gmailThreadId: normalizeText(message.gmailThreadId) || null,
           gmailHistoryId: normalizeText(message.gmailHistoryId) || null,
+          rfcMessageId: normalizedRfcMessageId || null,
+          inReplyTo: normalizedInReplyTo || null,
+          referencesHeader: normalizedReferencesHeader.length
+            ? normalizedReferencesHeader
+            : [],
+          threadPosition:
+            typeof message.threadPosition === "number" ? message.threadPosition : null,
           subject: normalizeText(message.subject) || "(no subject)",
           sender: normalizeText(message.sender) || normalizeText(message.senderEmail) || "Unknown sender",
           senderEmail: normalizeText(message.senderEmail) || null,
@@ -286,10 +468,17 @@ const persistSyncPayload = async ({ userId, gmailAccountId, syncStateId, syncPay
         create: {
           userId,
           gmailAccountId,
-          applicationId: application?.id || null,
+          applicationId: resolvedApplicationId,
           gmailMessageId: message.gmailMessageId,
           gmailThreadId: normalizeText(message.gmailThreadId) || null,
           gmailHistoryId: normalizeText(message.gmailHistoryId) || null,
+          rfcMessageId: normalizedRfcMessageId || null,
+          inReplyTo: normalizedInReplyTo || null,
+          referencesHeader: normalizedReferencesHeader.length
+            ? normalizedReferencesHeader
+            : [],
+          threadPosition:
+            typeof message.threadPosition === "number" ? message.threadPosition : null,
           subject: normalizeText(message.subject) || "(no subject)",
           sender: normalizeText(message.sender) || normalizeText(message.senderEmail) || "Unknown sender",
           senderEmail: normalizeText(message.senderEmail) || null,
@@ -313,6 +502,17 @@ const persistSyncPayload = async ({ userId, gmailAccountId, syncStateId, syncPay
           needsReplyDraft: Boolean(extraction.needsReplyDraft),
           replyRequiredAt: extraction.needsReplyDraft ? new Date() : null,
         },
+      });
+
+      persistedEmailMetadata.push({
+        emailId: emailRecord.id,
+        gmailMessageId: normalizeText(message.gmailMessageId),
+        parentGmailMessageId: normalizeText(message.parentGmailMessageId),
+        parentRfcMessageId: normalizeMessageId(message.parentRfcMessageId),
+        inReplyTo: normalizedInReplyTo,
+        referencesHeader: normalizedReferencesHeader,
+        rfcMessageId: normalizedRfcMessageId,
+        isRootCandidate: shouldTreatAsRootMessage(message),
       });
 
       await tx.progressEmailIntelligence.upsert({
@@ -364,6 +564,99 @@ const persistSyncPayload = async ({ userId, gmailAccountId, syncStateId, syncPay
       }
 
       processedMessages += 1;
+    }
+
+    const candidateGmailMessageIds = [...new Set(
+      persistedEmailMetadata.flatMap((item) =>
+        [item.gmailMessageId, item.parentGmailMessageId].filter(Boolean),
+      ),
+    )];
+    const candidateRfcMessageIds = [...new Set(
+      persistedEmailMetadata.flatMap((item) =>
+        [
+          item.rfcMessageId,
+          item.parentRfcMessageId,
+          item.inReplyTo,
+          ...(Array.isArray(item.referencesHeader) ? item.referencesHeader : []),
+        ].filter(Boolean),
+      ),
+    )];
+
+    const lookupEmails =
+      candidateGmailMessageIds.length || candidateRfcMessageIds.length
+        ? await tx.progressEmail.findMany({
+            where: {
+              gmailAccountId,
+              OR: [
+                ...(candidateGmailMessageIds.length
+                  ? [{ gmailMessageId: { in: candidateGmailMessageIds } }]
+                  : []),
+                ...(candidateRfcMessageIds.length
+                  ? [{ rfcMessageId: { in: candidateRfcMessageIds } }]
+                  : []),
+              ],
+            },
+            select: {
+              id: true,
+              gmailMessageId: true,
+              rfcMessageId: true,
+            },
+          })
+        : [];
+
+    const byGmailMessageId = new Map(
+      lookupEmails.map((email) => [normalizeText(email.gmailMessageId), email.id]),
+    );
+    const byRfcMessageId = new Map(
+      lookupEmails
+        .filter((email) => normalizeMessageId(email.rfcMessageId))
+        .map((email) => [normalizeMessageId(email.rfcMessageId), email.id]),
+    );
+
+    for (const item of persistedEmailMetadata) {
+      let parentEmailId = "";
+      if (item.parentGmailMessageId) {
+        parentEmailId = byGmailMessageId.get(item.parentGmailMessageId) || "";
+      }
+      if (!parentEmailId && item.parentRfcMessageId) {
+        parentEmailId = byRfcMessageId.get(item.parentRfcMessageId) || "";
+      }
+      if (!parentEmailId && item.inReplyTo) {
+        parentEmailId = byRfcMessageId.get(item.inReplyTo) || "";
+      }
+      if (!parentEmailId && item.referencesHeader.length) {
+        for (const referenceId of [...item.referencesHeader].reverse()) {
+          const candidateParentId = byRfcMessageId.get(referenceId) || "";
+          if (candidateParentId) {
+            parentEmailId = candidateParentId;
+            break;
+          }
+        }
+      }
+
+      if (parentEmailId && parentEmailId !== item.emailId) {
+        await tx.progressEmail.update({
+          where: { id: item.emailId },
+          data: { parentEmailId },
+        });
+      } else if (item.isRootCandidate) {
+        await tx.progressEmail.update({
+          where: { id: item.emailId },
+          data: { parentEmailId: null },
+        });
+      }
+
+      if (item.rfcMessageId) {
+        await tx.progressEmail.updateMany({
+          where: {
+            gmailAccountId,
+            id: { not: item.emailId },
+            parentEmailId: null,
+            inReplyTo: item.rfcMessageId,
+          },
+          data: { parentEmailId: item.emailId },
+        });
+      }
     }
 
     await tx.gmailAccount.update({
@@ -494,9 +787,15 @@ const listEmailsForApplication = async (userId, applicationId) => {
     where: {
       userId,
       applicationId,
+      parentEmailId: null,
     },
     include: {
       intelligence: true,
+      _count: {
+        select: {
+          childReplies: true,
+        },
+      },
     },
     orderBy: [{ receivedAt: "desc" }, { sentAt: "desc" }, { createdAt: "desc" }],
   });
@@ -507,34 +806,41 @@ const listEmailsForApplication = async (userId, applicationId) => {
 };
 
 const getEmailDetailById = async (userId, emailId) => {
-  const email = await prisma.progressEmail.findFirst({
+  const selectedEmail = await prisma.progressEmail.findFirst({
     where: { id: emailId, userId },
     include: {
       intelligence: true,
     },
   });
 
-  if (!email) {
+  if (!selectedEmail) {
     throw createHttpError("Email not found", 404);
   }
 
+  const rootEmail = await resolveRootEmailForUser(userId, selectedEmail);
+  const replyRows = await loadThreadRepliesForRoot(userId, rootEmail.id);
+
   return {
-    email: mapEmailDetail(email),
+    email: mapEmailDetail(rootEmail, replyRows),
   };
 };
 
 const getInviteReplyDraftByEmailId = async (userId, emailId) => {
-  const email = await ensureEmailBelongsToUser(userId, emailId);
-  const intent = email.intelligence?.intent || "unknown";
+  const selectedEmail = await ensureEmailBelongsToUser(userId, emailId);
+  const rootEmail = await resolveRootEmailForUser(userId, selectedEmail);
+  const intent = rootEmail.intelligence?.intent || "unknown";
   if (intent !== "invite") {
     throw createHttpError("Reply draft is only available for invite emails", 400);
   }
 
-  const latestReply = email.replies[0];
+  const latestReply = await prisma.progressEmailReply.findFirst({
+    where: { emailId: rootEmail.id },
+    orderBy: { createdAt: "desc" },
+  });
   if (latestReply?.draftText) {
     return {
       draft: {
-        emailId,
+        emailId: rootEmail.id,
         draftText: latestReply.reviewedText || latestReply.draftText,
         source: "langgraph-ai",
         editable: true,
@@ -547,6 +853,8 @@ const getInviteReplyDraftByEmailId = async (userId, emailId) => {
     where: { id: userId },
     select: { fullName: true, email: true },
   });
+  const { orderedReplies } = await loadThreadReplyRecordsForRoot(userId, rootEmail.id);
+  const conversationMessages = buildConversationMessagesForAi(rootEmail, orderedReplies);
 
   const aiDraft = await requestAiService("/progress-tracking/reply-draft", {
     user: {
@@ -554,14 +862,15 @@ const getInviteReplyDraftByEmailId = async (userId, emailId) => {
       email: user?.email || "",
     },
     email: {
-      subject: email.subject,
-      sender: email.sender,
-      senderEmail: email.senderEmail || "",
-      body: email.rawBodyText || email.rawBodyHtml || email.snippet || "",
-      summary: email.intelligence?.summary || "",
-      companyName: email.intelligence?.companyName || "",
-      positionTitle: email.intelligence?.positionTitle || "",
+      subject: rootEmail.subject,
+      sender: rootEmail.sender,
+      senderEmail: rootEmail.senderEmail || "",
+      body: toMessageBody(rootEmail),
+      summary: rootEmail.intelligence?.summary || "",
+      companyName: rootEmail.intelligence?.companyName || "",
+      positionTitle: rootEmail.intelligence?.positionTitle || "",
     },
+    conversationMessages,
   });
 
   const draftText = normalizeText(aiDraft?.draftText);
@@ -572,7 +881,7 @@ const getInviteReplyDraftByEmailId = async (userId, emailId) => {
   const savedReply = await prisma.progressEmailReply.create({
     data: {
       userId,
-      emailId,
+      emailId: rootEmail.id,
       status: "drafted",
       draftText,
     },
@@ -580,7 +889,7 @@ const getInviteReplyDraftByEmailId = async (userId, emailId) => {
 
   return {
     draft: {
-      emailId,
+      emailId: rootEmail.id,
       draftText: savedReply.draftText,
       source: "langgraph-ai",
       editable: true,
@@ -590,8 +899,9 @@ const getInviteReplyDraftByEmailId = async (userId, emailId) => {
 };
 
 const confirmInviteReplySend = async (userId, emailId, draftText) => {
-  const email = await ensureEmailBelongsToUser(userId, emailId);
-  const intent = email.intelligence?.intent || "unknown";
+  const selectedEmail = await ensureEmailBelongsToUser(userId, emailId);
+  const rootEmail = await resolveRootEmailForUser(userId, selectedEmail);
+  const intent = rootEmail.intelligence?.intent || "unknown";
   if (intent !== "invite") {
     throw createHttpError("Only invite emails can be confirmed for reply", 400);
   }
@@ -602,13 +912,28 @@ const confirmInviteReplySend = async (userId, emailId, draftText) => {
   }
 
   const { account, accessToken } = await getFreshGmailAccessContextForUser(userId);
+  const latestReplyForRoot = await prisma.progressEmailReply.findFirst({
+    where: { emailId: rootEmail.id },
+    orderBy: { createdAt: "desc" },
+  });
+  const { orderedReplies } = await loadThreadReplyRecordsForRoot(userId, rootEmail.id);
+  const conversationRows = sortEmailsChronologically([rootEmail, ...orderedReplies]);
+  const latestThreadMessage = conversationRows[conversationRows.length - 1] || rootEmail;
+  const replyReferences = [
+    ...new Set(
+      [
+        ...normalizeReferencesHeader(latestThreadMessage.referencesHeader),
+        normalizeMessageId(latestThreadMessage.rfcMessageId),
+      ].filter(Boolean),
+    ),
+  ];
 
   const pendingReply = await prisma.progressEmailReply.create({
     data: {
       userId,
-      emailId,
+      emailId: rootEmail.id,
       status: "reviewed",
-      draftText: email.replies[0]?.draftText || trimmedDraft,
+      draftText: latestReplyForRoot?.draftText || trimmedDraft,
       reviewedText: trimmedDraft,
       confirmedAt: new Date(),
     },
@@ -621,12 +946,18 @@ const confirmInviteReplySend = async (userId, emailId, draftText) => {
         googleEmail: account.googleEmail,
       },
       email: {
-        gmailThreadId: email.gmailThreadId || "",
+        gmailThreadId: rootEmail.gmailThreadId || "",
         senderEmail: account.googleEmail,
-        recipientEmail: email.senderEmail || email.intelligence?.contactEmail || "",
-        subject: email.subject,
-        body: email.rawBodyText || email.rawBodyHtml || email.snippet || "",
+        recipientEmail:
+          latestThreadMessage.senderEmail ||
+          rootEmail.senderEmail ||
+          rootEmail.intelligence?.contactEmail ||
+          "",
+        subject: rootEmail.subject,
+        body: toMessageBody(latestThreadMessage),
         draftText: trimmedDraft,
+        inReplyTo: normalizeMessageId(latestThreadMessage.rfcMessageId),
+        referencesHeader: replyReferences,
       },
     });
 
@@ -638,13 +969,13 @@ const confirmInviteReplySend = async (userId, emailId, draftText) => {
         sentAt: new Date(),
         sentMessageId: normalizeText(sendResult?.sentMessageId) || null,
         sentThreadId:
-          normalizeText(sendResult?.threadId) || email.gmailThreadId || null,
+          normalizeText(sendResult?.threadId) || rootEmail.gmailThreadId || null,
       },
     });
 
     return {
       confirmation: {
-        emailId,
+        emailId: rootEmail.id,
         status: updatedReply.status,
         deliveryId: updatedReply.sentMessageId || updatedReply.id,
         confirmedAt: toIsoDate(updatedReply.confirmedAt) || new Date().toISOString(),

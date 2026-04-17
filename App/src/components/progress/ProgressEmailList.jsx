@@ -46,6 +46,11 @@ const ProgressEmailList = ({ emails, loading, selectedEmailId, onSelectEmail }) 
                 <p className="text-xs text-gray-600">{email.sender}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                {email.replyCount > 0 ? (
+                  <span className="inline-flex rounded-full bg-indigo-100 px-2 py-1 text-xs font-medium text-indigo-700">
+                    {email.replyCount} repl{email.replyCount === 1 ? "y" : "ies"}
+                  </span>
+                ) : null}
                 <span
                   className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
                     intentClasses[email.intent] || intentClasses.unknown

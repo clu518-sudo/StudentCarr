@@ -297,6 +297,11 @@ model ProgressEmail {
   gmailMessageId  String                    @map("gmail_message_id")
   gmailThreadId   String?                   @map("gmail_thread_id")
   gmailHistoryId  String?                   @map("gmail_history_id")
+  rfcMessageId    String?                   @map("rfc_message_id")
+  inReplyTo       String?                   @map("in_reply_to")
+  referencesHeader Json?                    @map("references_header")
+  parentEmailId   String?                   @map("parent_email_id")
+  threadPosition  Int?                      @map("thread_position")
   subject         String
   sender          String
   senderEmail     String?                   @map("sender_email")
@@ -321,6 +326,8 @@ model ProgressEmail {
   user            User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   gmailAccount    GmailAccount              @relation(fields: [gmailAccountId], references: [id], onDelete: Cascade)
   application     ProgressApplication?      @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  parentEmail     ProgressEmail?            @relation("ProgressEmailReplies", fields: [parentEmailId], references: [id], onDelete: SetNull)
+  childReplies    ProgressEmail[]           @relation("ProgressEmailReplies")
   intelligence    ProgressEmailIntelligence?
   replies         ProgressEmailReply[]
 
@@ -328,6 +335,9 @@ model ProgressEmail {
   @@index([userId, applicationId])
   @@index([gmailAccountId, receivedAt])
   @@index([gmailThreadId])
+  @@index([rfcMessageId])
+  @@index([parentEmailId])
+  @@index([applicationId, parentEmailId])
   @@map("progress_emails")
 }
 

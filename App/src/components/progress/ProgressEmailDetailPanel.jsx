@@ -1,5 +1,9 @@
 import React from "react";
 
+const renderMessageBody = (body) => (
+  <pre className="whitespace-pre-wrap text-sm text-gray-800 font-sans">{body || "-"}</pre>
+);
+
 const ProgressEmailDetailPanel = ({ email, loading }) => {
   if (loading) {
     return (
@@ -53,9 +57,47 @@ const ProgressEmailDetailPanel = ({ email, loading }) => {
         ) : null}
       </div>
       <div className="pt-4">
-        <pre className="whitespace-pre-wrap text-sm text-gray-800 font-sans">
-          {email.body}
-        </pre>
+        {renderMessageBody(email.body)}
+      </div>
+      <div className="mt-6 border-t border-gray-200 pt-4">
+        <h3 className="text-base font-semibold text-gray-900">
+          Thread Replies ({email.replyCount || email.replies?.length || 0})
+        </h3>
+        {!email.replies?.length ? (
+          <p className="mt-2 text-sm text-gray-600">
+            No replies have been linked to this conversation yet.
+          </p>
+        ) : (
+          <div className="mt-3 space-y-3">
+            {email.replies.map((reply) => (
+              <div
+                key={reply.id}
+                className="rounded-md border border-gray-200 bg-gray-50 p-3"
+                style={{ marginLeft: `${Math.max((reply.depth || 1) - 1, 0) * 12}px` }}
+              >
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-gray-900">
+                    {reply.subject || "(no subject)"}
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    <span className="font-medium text-gray-700">From:</span> {reply.sender}
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    <span className="font-medium text-gray-700">Date:</span>{" "}
+                    {new Date(reply.date).toLocaleString()}
+                  </p>
+                  {reply.summary ? (
+                    <p className="text-xs text-gray-700">
+                      <span className="font-medium text-gray-900">Summary:</span>{" "}
+                      {reply.summary}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="mt-2">{renderMessageBody(reply.body)}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

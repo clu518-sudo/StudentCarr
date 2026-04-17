@@ -32,7 +32,7 @@ const ProgressView = () => {
   const [syncMessage, setSyncMessage] = useState("");
   const [error, setError] = useState("");
 
-  const selectedEmailId = selectedEmail?.id || "";
+  const selectedEmailId = selectedEmailDetail?.id || selectedEmail?.id || "";
   const isInviteEmail = selectedEmailDetail?.intent === "invite";
   const gmailConnected = Boolean(gmailStatus?.connected);
 
@@ -247,11 +247,19 @@ const ProgressView = () => {
         );
         const emailDetail = detailResponse?.data?.email || null;
         setSelectedEmailDetail(emailDetail);
+        if (emailDetail?.id) {
+          setSelectedEmail((prev) => ({
+            ...(prev || email),
+            ...email,
+            id: emailDetail.id,
+            applicationId: emailDetail.applicationId || email.applicationId || null,
+          }));
+        }
 
         if (emailDetail?.intent === "invite") {
           setLoadingDraft(true);
           const draftResponse = await progressTrackingApi.getInviteReplyDraft(
-            email.id,
+            emailDetail.id,
             accessToken,
           );
           setDraftText(draftResponse?.data?.draft?.draftText || "");
