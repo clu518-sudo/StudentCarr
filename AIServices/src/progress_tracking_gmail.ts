@@ -16,12 +16,22 @@ const GMAIL_INCREMENTAL_QUERY = "is:unread newer_than:30d";
 
 const existingApplicationSchema = z.object({
   id: z.string().trim().min(1),
-  companyName: z.string().trim().optional().default(""),
-  positionTitle: z.string().trim().optional().default(""),
-  companyNameNormalized: z.string().trim().optional().default(""),
-  positionTitleNormalized: z.string().trim().optional().default(""),
-  status: z.string().trim().optional().default(""),
-  contactEmail: z.string().trim().optional().default(""),
+  companyName: z.string().trim().nullable().optional().transform((value) => value ?? ""),
+  positionTitle: z.string().trim().nullable().optional().transform((value) => value ?? ""),
+  companyNameNormalized: z
+    .string()
+    .trim()
+    .nullable()
+    .optional()
+    .transform((value) => value ?? ""),
+  positionTitleNormalized: z
+    .string()
+    .trim()
+    .nullable()
+    .optional()
+    .transform((value) => value ?? ""),
+  status: z.string().trim().nullable().optional().transform((value) => value ?? ""),
+  contactEmail: z.string().trim().nullable().optional().transform((value) => value ?? ""),
 });
 
 const progressSyncRequestSchema = z.object({
