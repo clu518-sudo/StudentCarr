@@ -7,4 +7,12 @@ export default defineConfig({
       include: "**/*.{js,jsx,ts,tsx}",
     }),
   ],
+  server: {
+    port: 10003,
+    strictPort: true,
+  },
+  preview: {
+    port: 10003,
+    strictPort: true,
+  },
 });

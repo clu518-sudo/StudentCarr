@@ -9,9 +9,13 @@ const toNumber = (value, fallback) => {
 
 const env = {
   nodeEnv: process.env.NODE_ENV || "development",
-  port: toNumber(process.env.PORT, 4000),
-  corsOrigin: process.env.CORS_ORIGIN || "http://localhost:5173",
-  appBaseUrl: process.env.APP_BASE_URL || process.env.CORS_ORIGIN || "http://localhost:5173",
+  port: toNumber(process.env.PORT, 10001),
+  corsOrigin:
+    process.env.CORS_ORIGIN ||
+    "http://localhost:10003,http://127.0.0.1:10003",
+  appBaseUrl:
+    process.env.APP_BASE_URL ||
+    "http://localhost:10003",
   databaseUrl: process.env.DATABASE_URL || "file:./dev.db",
   accessTokenSecret: process.env.JWT_ACCESS_SECRET || "dev_access_secret_change_me",
   refreshTokenSecret: process.env.JWT_REFRESH_SECRET || "dev_refresh_secret_change_me",
@@ -36,9 +40,9 @@ const env = {
   gmailClientSecret: process.env.GMAIL_CLIENT_SECRET || "",
   gmailRedirectUri:
     process.env.GMAIL_REDIRECT_URI ||
-    "http://localhost:4000/api/process-tracking/gmail/callback",
+    "http://localhost:10001/api/process-tracking/gmail/callback",
   progressTrackingServiceBaseUrl:
-    process.env.PROGRESS_TRACKING_SERVICE_BASE_URL || "http://127.0.0.1:2024",
+    process.env.PROGRESS_TRACKING_SERVICE_BASE_URL || "http://127.0.0.1:10002",
 };
 
 const isProduction = env.nodeEnv === "production";

@@ -16,7 +16,7 @@ import {
 } from "./progress_tracking_gmail.js";
 
 const DEFAULT_HOST = "127.0.0.1";
-const DEFAULT_PORT = Number(process.env.LANGGRAPH_PORT || 2024);
+const DEFAULT_PORT = Number(process.env.LANGGRAPH_PORT || 10002);
 
 const parseRequestBody = async (req: http.IncomingMessage): Promise<unknown> => {
   const chunks: Buffer[] = [];

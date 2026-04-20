@@ -5,7 +5,7 @@ import { DOCUMENT_PARSER_STATUS } from "../documentParsing/constants.js";
 
 const PROFILE_GENERATION_SERVICE_URL =
   process.env.PROFILE_GENERATION_SERVICE_URL ||
-  "http://127.0.0.1:2024/generate-profile";
+  "http://127.0.0.1:10002/generate-profile";
 
 const isAbortError = (error) =>
   error?.name === "AbortError" || error?.code === "ABORT_ERR";

@@ -101,7 +101,7 @@ src/
    - Ready to deploy to any static hosting service
 
 4. **Access the Application**
-   - Development: Open [http://localhost:3000](http://localhost:3000)
+   - Development: Open [http://localhost:10003](http://localhost:10003)
    - Production: Serve the `build/` folder using a web server
    - Use any email and password (minimum 6 characters) to login
 
@@ -112,7 +112,7 @@ src/
 npm start
 ```
 - Starts the development server with hot-reload
-- Runs on http://localhost:3000
+- Runs on http://localhost:10003
 - Includes source maps and error overlays
 
 ### Production Build

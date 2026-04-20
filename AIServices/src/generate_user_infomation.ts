@@ -11,7 +11,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 
 const DEFAULT_HOST = "127.0.0.1";
-const DEFAULT_PORT = Number(process.env.LANGGRAPH_PORT || 2024);
+const DEFAULT_PORT = Number(process.env.LANGGRAPH_PORT || 10002);
 const GENERATE_ROUTE = "/generate-profile";
 const OPENAI_MODEL =
   process.env.OPENAI_MODEL || process.env.MODEL || "gpt-4.1-mini";

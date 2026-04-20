@@ -7,7 +7,7 @@ import {
   getGmailStatusForUser,
 } from "./pt.gmail.js";
 
-const AI_BASE_URL = String(env.progressTrackingServiceBaseUrl || "http://127.0.0.1:2024").replace(
+const AI_BASE_URL = String(env.progressTrackingServiceBaseUrl || "http://127.0.0.1:10002").replace(
   /\/$/,
   "",
 );

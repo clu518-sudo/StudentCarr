@@ -31,7 +31,7 @@ const createHttpError = (message, statusCode = 500) => {
 };
 
 const getFrontendProgressUrl = (status, message = "") => {
-  const baseUrl = String(env.appBaseUrl || env.corsOrigin || "http://localhost:5173")
+  const baseUrl = String(env.appBaseUrl || env.corsOrigin || "http://localhost:10000")
     .split(",")[0]
     .trim();
   const url = new URL("/progress", baseUrl);
