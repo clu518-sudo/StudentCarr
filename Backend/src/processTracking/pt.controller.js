@@ -42,11 +42,16 @@ const listApplications = async (req, res, next) => {
 const deleteApplications = async (req, res, next) => {
   try {
     const payload = validate(deleteApplicationsSchema, req.body || {});
-    const result = await deleteApplicationsForUser(req.user.id, payload.applicationIds);
+    const result = await deleteApplicationsForUser(
+      req.user.id,
+      payload.applicationIds,
+    );
     return res.json({ success: true, data: result });
   } catch (error) {
     if (error.name === "ZodError") {
-      return res.status(400).json({ success: false, error: formatZodError(error) });
+      return res
+        .status(400)
+        .json({ success: false, error: formatZodError(error) });
     }
     return next(error);
   }
@@ -59,7 +64,9 @@ const listApplicationEmails = async (req, res, next) => {
     return res.json({ success: true, data: result });
   } catch (error) {
     if (error.name === "ZodError") {
-      return res.status(400).json({ success: false, error: formatZodError(error) });
+      return res
+        .status(400)
+        .json({ success: false, error: formatZodError(error) });
     }
     return next(error);
   }
@@ -72,7 +79,9 @@ const getEmailDetail = async (req, res, next) => {
     return res.json({ success: true, data: result });
   } catch (error) {
     if (error.name === "ZodError") {
-      return res.status(400).json({ success: false, error: formatZodError(error) });
+      return res
+        .status(400)
+        .json({ success: false, error: formatZodError(error) });
     }
     return next(error);
   }
@@ -85,7 +94,9 @@ const getInviteReplyDraft = async (req, res, next) => {
     return res.json({ success: true, data: result });
   } catch (error) {
     if (error.name === "ZodError") {
-      return res.status(400).json({ success: false, error: formatZodError(error) });
+      return res
+        .status(400)
+        .json({ success: false, error: formatZodError(error) });
     }
     return next(error);
   }
@@ -95,11 +106,17 @@ const confirmInviteReply = async (req, res, next) => {
   try {
     const { id } = validate(idParamsSchema, req.params);
     const payload = validate(confirmReplySchema, req.body || {});
-    const result = await confirmInviteReplySend(req.user.id, id, payload.draftText);
+    const result = await confirmInviteReplySend(
+      req.user.id,
+      id,
+      payload.draftText,
+    );
     return res.json({ success: true, data: result });
   } catch (error) {
     if (error.name === "ZodError") {
-      return res.status(400).json({ success: false, error: formatZodError(error) });
+      return res
+        .status(400)
+        .json({ success: false, error: formatZodError(error) });
     }
     return next(error);
   }

@@ -31,7 +31,9 @@ const createHttpError = (message, statusCode = 500) => {
 };
 
 const getFrontendProgressUrl = (status, message = "") => {
-  const baseUrl = String(env.appBaseUrl || env.corsOrigin || "http://localhost:10000")
+  const baseUrl = String(
+    env.appBaseUrl || env.corsOrigin || "http://localhost:10000",
+  )
     .split(",")[0]
     .trim();
   const url = new URL("/progress", baseUrl);
@@ -55,7 +57,10 @@ const fetchJson = async (url, options, fallbackMessage) => {
   const response = await fetch(url, options);
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw createHttpError(payload?.error_description || payload?.error || fallbackMessage, 502);
+    throw createHttpError(
+      payload?.error_description || payload?.error || fallbackMessage,
+      502,
+    );
   }
   return payload;
 };
@@ -205,7 +210,10 @@ const handleGmailOAuthCallback = async ({ code, state, error: oauthError }) => {
 
   if (!oauthState || oauthState.expiresAt.getTime() < Date.now()) {
     return {
-      redirectUrl: getFrontendProgressUrl("error", "Gmail OAuth session expired."),
+      redirectUrl: getFrontendProgressUrl(
+        "error",
+        "Gmail OAuth session expired.",
+      ),
     };
   }
 
@@ -221,7 +229,10 @@ const handleGmailOAuthCallback = async ({ code, state, error: oauthError }) => {
     const googleEmail = normalizeEmail(userInfo.email);
 
     if (!googleEmail) {
-      throw createHttpError("Unable to verify the connected Gmail address.", 502);
+      throw createHttpError(
+        "Unable to verify the connected Gmail address.",
+        502,
+      );
     }
 
     if (appEmail && googleEmail !== appEmail) {
@@ -246,7 +257,10 @@ const handleGmailOAuthCallback = async ({ code, state, error: oauthError }) => {
           googleSub: String(userInfo.id || existingAccount?.googleSub || ""),
           googleEmail,
           displayName: userInfo.name || existingAccount?.displayName || null,
-          scope: typeof tokens.scope === "string" ? tokens.scope : existingAccount?.scope,
+          scope:
+            typeof tokens.scope === "string"
+              ? tokens.scope
+              : existingAccount?.scope,
           accessTokenEncrypted: encryptText(accessToken),
           refreshTokenEncrypted: encryptText(
             tokens.refresh_token ||
@@ -265,7 +279,10 @@ const handleGmailOAuthCallback = async ({ code, state, error: oauthError }) => {
           googleSub: String(userInfo.id || googleEmail),
           googleEmail,
           displayName: userInfo.name || null,
-          scope: typeof tokens.scope === "string" ? tokens.scope : GMAIL_SCOPE_LIST.join(" "),
+          scope:
+            typeof tokens.scope === "string"
+              ? tokens.scope
+              : GMAIL_SCOPE_LIST.join(" "),
           accessTokenEncrypted: encryptText(accessToken),
           refreshTokenEncrypted: encryptText(tokens.refresh_token || ""),
           tokenType: tokens.token_type || "Bearer",

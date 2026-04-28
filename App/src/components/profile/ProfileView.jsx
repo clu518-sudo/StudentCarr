@@ -1,6 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { profileManagementApi } from "../../lib/apiClient";
-import { useAuth } from "../../contexts/AuthContext";
+import React, { useEffect, useState } from "react";
+import { useProfile } from "../../contexts/ProfileContext";
 
 const DOCUMENT_TYPES = [
   "Resume",
@@ -11,29 +10,6 @@ const DOCUMENT_TYPES = [
   "Essay",
   "Working History & Related Project Description",
 ];
-
-const emptyProfile = {
-  personalInfo: {
-    name: "",
-    headline: "",
-    summary: "",
-    phone: "",
-    location: "",
-    links: [],
-  },
-  preferences: {
-    preferredRoles: [],
-    preferredLocations: [],
-    workAuthorization: "",
-    salaryRange: "",
-    availability: "",
-  },
-  education: [],
-  workExperience: [],
-  projects: [],
-  skills: [],
-  certifications: [],
-};
 
 const emptyEducation = {
   school: "",
@@ -105,14 +81,8 @@ const profileDangerButtonClass =
   "inline-flex items-center justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 transition-colors duration-200 hover:bg-red-100";
 const profileDisabledButtonClass =
   "inline-flex items-center justify-center rounded-lg border border-gray-200 bg-gray-100 px-4 py-2 text-sm font-medium text-gray-400 cursor-not-allowed";
-const documentPollingIntervalMs = 3000;
-const activeParserStatuses = new Set(["pending", "processing"]);
-
 const getParserStatus = (document) =>
   document?.parserStatus || document?.status || "pending";
-
-const hasActiveDocumentParsing = (documents = []) =>
-  documents.some((document) => activeParserStatuses.has(getParserStatus(document)));
 
 const getParserStatusLabel = (status) => {
   switch (status) {
@@ -143,94 +113,37 @@ const getParserStatusClass = (status) => {
 };
 
 const ProfileView = () => {
-  const { accessToken } = useAuth();
   const [activeMode, setActiveMode] = useState("manual");
-  const [manualProfile, setManualProfile] = useState(emptyProfile);
-  const [documents, setDocuments] = useState([]);
-  const [githubUrl, setGithubUrl] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [savingManual, setSavingManual] = useState(false);
-  const [uploadingByType, setUploadingByType] = useState({});
-  const [downloadingDocumentId, setDownloadingDocumentId] = useState(null);
-  const [generatingManual, setGeneratingManual] = useState(false);
-  const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
-  const generateAbortControllerRef = useRef(null);
-
-  const refreshDocuments = useCallback(
-    async ({ silent = false } = {}) => {
-      if (!accessToken) {
-        return [];
-      }
-
-      try {
-        const docsResponse = await profileManagementApi.getDocuments(accessToken);
-        const nextDocuments = docsResponse?.data?.documents || [];
-        setDocuments(nextDocuments);
-        return nextDocuments;
-      } catch (loadError) {
-        if (!silent) {
-          throw loadError;
-        }
-        return [];
-      }
-    },
-    [accessToken],
-  );
-
-  const loadProfile = useCallback(async () => {
-    if (!accessToken) {
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-    try {
-      const response = await profileManagementApi.getProfile(accessToken);
-      const profile = response?.data?.manualProfile || emptyProfile;
-      const profileDocuments = response?.data?.documents || [];
-      setManualProfile({
-        ...emptyProfile,
-        ...profile,
-      });
-      setDocuments(profileDocuments);
-
-      const links = profile?.personalInfo?.links || [];
-      const githubLink = links.find(
-        (link) => link?.label?.toLowerCase?.() === "github",
-      );
-      setGithubUrl(githubLink?.url || "");
-    } catch (loadError) {
-      setError(loadError.message || "Failed to load profile");
-    } finally {
-      setLoading(false);
-    }
-  }, [accessToken]);
+  const {
+    manualProfile,
+    setManualProfile,
+    documents,
+    githubUrl,
+    setGithubUrl,
+    loading,
+    hasLoadedProfile,
+    savingManual,
+    uploadingByType,
+    downloadingDocumentId,
+    generatingManual,
+    error,
+    setError,
+    successMessage,
+    setSuccessMessage,
+    ensureProfileLoaded,
+    saveManualProfileData,
+    uploadDocumentForType,
+    deleteDocument,
+    downloadDocument,
+    handleGenerateSection,
+    cancelGeneration,
+  } = useProfile();
 
   useEffect(() => {
-    loadProfile();
-  }, [loadProfile]);
-
-  useEffect(() => {
-    if (!accessToken || !hasActiveDocumentParsing(documents)) {
-      return undefined;
-    }
-
-    const intervalId = window.setInterval(() => {
-      refreshDocuments({ silent: true });
-    }, documentPollingIntervalMs);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [accessToken, documents, refreshDocuments]);
-
-  useEffect(
-    () => () => {
-      generateAbortControllerRef.current?.abort();
-    },
-    [],
-  );
+    ensureProfileLoaded().catch(() => {
+      // Error state is handled by the profile context.
+    });
+  }, [ensureProfileLoaded]);
 
   const updatePersonalInfo = (field, value) => {
     setManualProfile((prev) => ({
@@ -359,7 +272,6 @@ const ProfileView = () => {
       return;
     }
 
-    setSavingManual(true);
     try {
       const normalizedProfile = {
         ...manualProfile,
@@ -373,148 +285,13 @@ const ProfileView = () => {
           ),
         },
       };
-      const response = await profileManagementApi.updateManualProfile(
-        normalizedProfile,
-        accessToken,
-      );
-      setManualProfile(response?.data?.manualProfile || normalizedProfile);
-      setDocuments(response?.data?.documents || documents);
-      setSuccessMessage("Manual profile saved successfully.");
-    } catch (saveError) {
-      setError(saveError.message || "Failed to save profile");
-    } finally {
-      setSavingManual(false);
+      await saveManualProfileData(normalizedProfile);
+    } catch {
+      // Error state is handled by the profile context.
     }
   };
 
-  const uploadDocumentForType = async (documentType, file) => {
-    if (!file) {
-      return;
-    }
-
-    setError("");
-    setSuccessMessage("");
-    setUploadingByType((prev) => ({ ...prev, [documentType]: true }));
-    try {
-      await profileManagementApi.uploadSingleDocument(
-        {
-          file,
-          documentType,
-          githubUrl: githubUrl.trim(),
-        },
-        accessToken,
-      );
-      await refreshDocuments();
-      setSuccessMessage(`${documentType} uploaded successfully.`);
-    } catch (uploadError) {
-      setError(uploadError.message || "Failed to upload documents");
-    } finally {
-      setUploadingByType((prev) => ({ ...prev, [documentType]: false }));
-    }
-  };
-
-  const deleteDocument = async (documentId) => {
-    setError("");
-    setSuccessMessage("");
-    try {
-      await profileManagementApi.deleteDocument(documentId, accessToken);
-      setDocuments((prev) => prev.filter((doc) => doc.id !== documentId));
-      setSuccessMessage("Document deleted successfully.");
-    } catch (deleteError) {
-      setError(deleteError.message || "Failed to delete document");
-    }
-  };
-
-  const downloadDocument = async (document) => {
-    setError("");
-    setSuccessMessage("");
-    setDownloadingDocumentId(document.id);
-
-    try {
-      const fileBlob = await profileManagementApi.downloadDocument(
-        document.id,
-        accessToken,
-      );
-      const downloadUrl = window.URL.createObjectURL(fileBlob);
-      const link = window.document.createElement("a");
-      link.href = downloadUrl;
-      link.download = document.originalName || `${document.documentType}.pdf`;
-      window.document.body.appendChild(link);
-      link.click();
-      window.document.body.removeChild(link);
-      window.URL.revokeObjectURL(downloadUrl);
-      setSuccessMessage(`Downloading ${document.originalName}...`);
-    } catch (downloadError) {
-      setError(downloadError.message || "Failed to download document");
-    } finally {
-      setDownloadingDocumentId(null);
-    }
-  };
-
-  const handleGenerateSection = async (sectionName) => {
-    if (!accessToken || generatingManual) {
-      return;
-    }
-
-    setError("");
-    setSuccessMessage(`${sectionName} generation started...`);
-    setGeneratingManual(true);
-    const abortController = new AbortController();
-    generateAbortControllerRef.current = abortController;
-
-    try {
-      await profileManagementApi.generateManualProfileStream(
-        {
-          sectionName,
-          signal: abortController.signal,
-          onEvent: (eventName, payload) => {
-            if (eventName === "started" || eventName === "progress") {
-              if (payload?.message) {
-                setSuccessMessage(payload.message);
-              }
-            }
-
-            if (eventName === "completed") {
-              const generatedProfile = payload?.result?.manualProfile;
-              const generatedDocuments = payload?.result?.documents;
-
-              if (generatedProfile) {
-                setManualProfile({
-                  ...emptyProfile,
-                  ...generatedProfile,
-                });
-              }
-              if (Array.isArray(generatedDocuments)) {
-                setDocuments(generatedDocuments);
-              }
-              setSuccessMessage(
-                payload?.message || "Profile generation completed.",
-              );
-            }
-          },
-        },
-        accessToken,
-      );
-    } catch (generationError) {
-      if (generationError?.name === "AbortError") {
-        setSuccessMessage("Generation cancelled.");
-        return;
-      }
-      setError(generationError.message || "Profile generation failed");
-    } finally {
-      generateAbortControllerRef.current = null;
-      setGeneratingManual(false);
-    }
-  };
-
-  const cancelGeneration = () => {
-    if (!generatingManual) {
-      return;
-    }
-    generateAbortControllerRef.current?.abort();
-  };
-
-  if (loading) {
+  if (!hasLoadedProfile && !error) {
     return (
       <div className="card">
         <p className="text-gray-600">Loading profile management data...</p>

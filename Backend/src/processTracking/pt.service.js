@@ -7,10 +7,9 @@ import {
   getGmailStatusForUser,
 } from "./pt.gmail.js";
 
-const AI_BASE_URL = String(env.progressTrackingServiceBaseUrl || "http://127.0.0.1:10002").replace(
-  /\/$/,
-  "",
-);
+const AI_BASE_URL = String(
+  env.progressTrackingServiceBaseUrl || "http://127.0.0.1:10002",
+).replace(/\/$/, "");
 
 const INTENT_TO_STATUS = {
   applied_confirmation: "applied",
@@ -26,7 +25,8 @@ const normalizeText = (value) =>
   typeof value === "string" ? value.trim() : "";
 
 const formatDraftEmailText = (value) => {
-  const normalized = typeof value === "string" ? value.replace(/\r\n/g, "\n").trim() : "";
+  const normalized =
+    typeof value === "string" ? value.replace(/\r\n/g, "\n").trim() : "";
   if (!normalized) {
     return "";
   }
@@ -41,7 +41,10 @@ const formatDraftEmailText = (value) => {
     .replace(/([.!?])\s+(Kind regards,?\b)/g, "$1\n\n$2")
     .replace(/([.!?])\s+(Sincerely,?\b)/g, "$1\n\n$2")
     .replace(/([.!?])\s+(Thanks again,?\b)/g, "$1\n\n$2")
-    .replace(/(Best regards,?|Kind regards,?|Sincerely,?|Regards,?)\s+([A-Z][A-Za-z' -]+)$/m, "$1\n$2");
+    .replace(
+      /(Best regards,?|Kind regards,?|Sincerely,?|Regards,?)\s+([A-Z][A-Za-z' -]+)$/m,
+      "$1\n$2",
+    );
 
   const lines = withStructuralBreaks
     .split("\n")
@@ -117,9 +120,13 @@ const toMessageBody = (email) =>
 const sortEmailsChronologically = (emails) =>
   [...emails].sort((left, right) => {
     const threadPositionLeft =
-      typeof left.threadPosition === "number" ? left.threadPosition : Number.MAX_SAFE_INTEGER;
+      typeof left.threadPosition === "number"
+        ? left.threadPosition
+        : Number.MAX_SAFE_INTEGER;
     const threadPositionRight =
-      typeof right.threadPosition === "number" ? right.threadPosition : Number.MAX_SAFE_INTEGER;
+      typeof right.threadPosition === "number"
+        ? right.threadPosition
+        : Number.MAX_SAFE_INTEGER;
     if (threadPositionLeft !== threadPositionRight) {
       return threadPositionLeft - threadPositionRight;
     }
@@ -136,7 +143,8 @@ const mapApplicationRecord = (application) => ({
   companyName: application.companyName,
   positionTitle: application.positionTitle,
   status: application.status || "under_review",
-  lastUpdatedAt: toIsoDate(application.lastUpdatedAt) || new Date().toISOString(),
+  lastUpdatedAt:
+    toIsoDate(application.lastUpdatedAt) || new Date().toISOString(),
 });
 
 const mapEmailListItem = (email) => ({
@@ -147,7 +155,9 @@ const mapEmailListItem = (email) => ({
   date: toDisplayDate(email),
   intent: email.intelligence?.intent || "unknown",
   replyCount:
-    typeof email._count?.childReplies === "number" ? email._count.childReplies : 0,
+    typeof email._count?.childReplies === "number"
+      ? email._count.childReplies
+      : 0,
 });
 
 const mapEmailThreadReply = (email, depth = 1) => ({
@@ -216,12 +226,16 @@ const requestAiService = async (path, payload) => {
 };
 
 const resolveApplicationStatus = (existingStatus, suggestedStatus, intent) => {
-  const candidateStatus = normalizeText(suggestedStatus) || INTENT_TO_STATUS[intent] || "";
+  const candidateStatus =
+    normalizeText(suggestedStatus) || INTENT_TO_STATUS[intent] || "";
   if (!candidateStatus) {
     return existingStatus || "under_review";
   }
 
-  if (TERMINAL_STATUSES.has(existingStatus) && existingStatus !== candidateStatus) {
+  if (
+    TERMINAL_STATUSES.has(existingStatus) &&
+    existingStatus !== candidateStatus
+  ) {
     return existingStatus;
   }
 
@@ -312,7 +326,8 @@ const loadThreadReplyRecordsForRoot = async (userId, rootEmailId) => {
     allReplies.push(...childEmails);
     parentIds = childEmails.map((email) => email.id);
     for (const childEmail of childEmails) {
-      const parentDepth = depthByEmailId.get(childEmail.parentEmailId || "") || 0;
+      const parentDepth =
+        depthByEmailId.get(childEmail.parentEmailId || "") || 0;
       depthByEmailId.set(childEmail.id, parentDepth + 1);
     }
   }
@@ -324,10 +339,8 @@ const loadThreadReplyRecordsForRoot = async (userId, rootEmailId) => {
 };
 
 const loadThreadRepliesForRoot = async (userId, rootEmailId) => {
-  const { orderedReplies, depthByEmailId } = await loadThreadReplyRecordsForRoot(
-    userId,
-    rootEmailId,
-  );
+  const { orderedReplies, depthByEmailId } =
+    await loadThreadReplyRecordsForRoot(userId, rootEmailId);
   return orderedReplies.map((reply) =>
     mapEmailThreadReply(reply, depthByEmailId.get(reply.id) || 1),
   );
@@ -342,7 +355,10 @@ const buildConversationMessagesForAi = (rootEmail, replyRows) =>
     body: toMessageBody(message),
   }));
 
-const upsertApplicationForExtraction = async (tx, { userId, gmailAccountId, extraction, emailDate }) => {
+const upsertApplicationForExtraction = async (
+  tx,
+  { userId, gmailAccountId, extraction, emailDate },
+) => {
   const normalizedCompany = normalizeKey(extraction?.companyName);
   const normalizedPosition = normalizeKey(extraction?.positionTitle);
 
@@ -383,10 +399,18 @@ const upsertApplicationForExtraction = async (tx, { userId, gmailAccountId, extr
     },
     update: {
       gmailAccountId,
-      companyName: normalizeText(extraction.companyName) || existing?.companyName || "Unknown Company",
+      companyName:
+        normalizeText(extraction.companyName) ||
+        existing?.companyName ||
+        "Unknown Company",
       positionTitle:
-        normalizeText(extraction.positionTitle) || existing?.positionTitle || "Unknown Position",
-      contactEmail: normalizeText(extraction.contactEmail) || existing?.contactEmail || null,
+        normalizeText(extraction.positionTitle) ||
+        existing?.positionTitle ||
+        "Unknown Position",
+      contactEmail:
+        normalizeText(extraction.contactEmail) ||
+        existing?.contactEmail ||
+        null,
       status: nextStatus,
       lastUpdatedAt: emailDate,
     },
@@ -395,7 +419,8 @@ const upsertApplicationForExtraction = async (tx, { userId, gmailAccountId, extr
       gmailAccountId,
       companyName: normalizeText(extraction.companyName) || "Unknown Company",
       companyNameNormalized: normalizedCompany,
-      positionTitle: normalizeText(extraction.positionTitle) || "Unknown Position",
+      positionTitle:
+        normalizeText(extraction.positionTitle) || "Unknown Position",
       positionTitleNormalized: normalizedPosition,
       contactEmail: normalizeText(extraction.contactEmail) || null,
       status: nextStatus,
@@ -404,8 +429,15 @@ const upsertApplicationForExtraction = async (tx, { userId, gmailAccountId, extr
   });
 };
 
-const persistSyncPayload = async ({ userId, gmailAccountId, syncStateId, syncPayload }) => {
-  const messages = Array.isArray(syncPayload?.messages) ? syncPayload.messages : [];
+const persistSyncPayload = async ({
+  userId,
+  gmailAccountId,
+  syncStateId,
+  syncPayload,
+}) => {
+  const messages = Array.isArray(syncPayload?.messages)
+    ? syncPayload.messages
+    : [];
   let processedMessages = 0;
   let upsertedApplications = 0;
   const persistedEmailMetadata = [];
@@ -444,11 +476,14 @@ const persistSyncPayload = async ({ userId, gmailAccountId, syncStateId, syncPay
             select: { id: true },
           })
         : null;
-      const resolvedApplicationId = matchedApplication?.id || application?.id || null;
+      const resolvedApplicationId =
+        matchedApplication?.id || application?.id || null;
 
       const normalizedRfcMessageId = normalizeMessageId(message.rfcMessageId);
       const normalizedInReplyTo = normalizeMessageId(message.inReplyTo);
-      const normalizedReferencesHeader = normalizeReferencesHeader(message.referencesHeader);
+      const normalizedReferencesHeader = normalizeReferencesHeader(
+        message.referencesHeader,
+      );
 
       const emailRecord = await tx.progressEmail.upsert({
         where: {
@@ -467,26 +502,38 @@ const persistSyncPayload = async ({ userId, gmailAccountId, syncStateId, syncPay
             ? normalizedReferencesHeader
             : [],
           threadPosition:
-            typeof message.threadPosition === "number" ? message.threadPosition : null,
+            typeof message.threadPosition === "number"
+              ? message.threadPosition
+              : null,
           subject: normalizeText(message.subject) || "(no subject)",
-          sender: normalizeText(message.sender) || normalizeText(message.senderEmail) || "Unknown sender",
+          sender:
+            normalizeText(message.sender) ||
+            normalizeText(message.senderEmail) ||
+            "Unknown sender",
           senderEmail: normalizeText(message.senderEmail) || null,
-          recipients: Array.isArray(message.recipients) ? message.recipients : [],
-          ccRecipients: Array.isArray(message.ccRecipients) ? message.ccRecipients : [],
-          bccRecipients: Array.isArray(message.bccRecipients) ? message.bccRecipients : [],
+          recipients: Array.isArray(message.recipients)
+            ? message.recipients
+            : [],
+          ccRecipients: Array.isArray(message.ccRecipients)
+            ? message.ccRecipients
+            : [],
+          bccRecipients: Array.isArray(message.bccRecipients)
+            ? message.bccRecipients
+            : [],
           snippet: normalizeText(message.snippet) || null,
           labelIds: Array.isArray(message.labelIds) ? message.labelIds : [],
-          rawHeaders: Array.isArray(message.rawHeaders) ? message.rawHeaders : [],
+          rawHeaders: Array.isArray(message.rawHeaders)
+            ? message.rawHeaders
+            : [],
           rawBodyText: normalizeText(message.rawBodyText) || null,
           rawBodyHtml: normalizeText(message.rawBodyHtml) || null,
           receivedAt: message.receivedAt ? new Date(message.receivedAt) : null,
           sentAt: message.sentAt ? new Date(message.sentAt) : null,
           isUnread: Boolean(message.isUnread),
           isRelevant:
-            typeof message.isRelevant === "boolean"
-              ? message.isRelevant
-              : true,
-          processingStage: normalizeText(message.processingStage) || "persisted",
+            typeof message.isRelevant === "boolean" ? message.isRelevant : true,
+          processingStage:
+            normalizeText(message.processingStage) || "persisted",
           aiProcessedAt: new Date(),
           needsReplyDraft: Boolean(extraction.needsReplyDraft),
           replyRequiredAt: extraction.needsReplyDraft ? new Date() : null,
@@ -504,26 +551,38 @@ const persistSyncPayload = async ({ userId, gmailAccountId, syncStateId, syncPay
             ? normalizedReferencesHeader
             : [],
           threadPosition:
-            typeof message.threadPosition === "number" ? message.threadPosition : null,
+            typeof message.threadPosition === "number"
+              ? message.threadPosition
+              : null,
           subject: normalizeText(message.subject) || "(no subject)",
-          sender: normalizeText(message.sender) || normalizeText(message.senderEmail) || "Unknown sender",
+          sender:
+            normalizeText(message.sender) ||
+            normalizeText(message.senderEmail) ||
+            "Unknown sender",
           senderEmail: normalizeText(message.senderEmail) || null,
-          recipients: Array.isArray(message.recipients) ? message.recipients : [],
-          ccRecipients: Array.isArray(message.ccRecipients) ? message.ccRecipients : [],
-          bccRecipients: Array.isArray(message.bccRecipients) ? message.bccRecipients : [],
+          recipients: Array.isArray(message.recipients)
+            ? message.recipients
+            : [],
+          ccRecipients: Array.isArray(message.ccRecipients)
+            ? message.ccRecipients
+            : [],
+          bccRecipients: Array.isArray(message.bccRecipients)
+            ? message.bccRecipients
+            : [],
           snippet: normalizeText(message.snippet) || null,
           labelIds: Array.isArray(message.labelIds) ? message.labelIds : [],
-          rawHeaders: Array.isArray(message.rawHeaders) ? message.rawHeaders : [],
+          rawHeaders: Array.isArray(message.rawHeaders)
+            ? message.rawHeaders
+            : [],
           rawBodyText: normalizeText(message.rawBodyText) || null,
           rawBodyHtml: normalizeText(message.rawBodyHtml) || null,
           receivedAt: message.receivedAt ? new Date(message.receivedAt) : null,
           sentAt: message.sentAt ? new Date(message.sentAt) : null,
           isUnread: Boolean(message.isUnread),
           isRelevant:
-            typeof message.isRelevant === "boolean"
-              ? message.isRelevant
-              : true,
-          processingStage: normalizeText(message.processingStage) || "persisted",
+            typeof message.isRelevant === "boolean" ? message.isRelevant : true,
+          processingStage:
+            normalizeText(message.processingStage) || "persisted",
           aiProcessedAt: new Date(),
           needsReplyDraft: Boolean(extraction.needsReplyDraft),
           replyRequiredAt: extraction.needsReplyDraft ? new Date() : null,
@@ -550,7 +609,9 @@ const persistSyncPayload = async ({ userId, gmailAccountId, syncStateId, syncPay
           positionTitle: normalizeText(extraction.positionTitle) || null,
           contactEmail: normalizeText(extraction.contactEmail) || null,
           confidence:
-            typeof extraction.confidence === "number" ? extraction.confidence : null,
+            typeof extraction.confidence === "number"
+              ? extraction.confidence
+              : null,
           needsReplyDraft: Boolean(extraction.needsReplyDraft),
           suggestedApplicationStatus:
             normalizeText(extraction.suggestedApplicationStatus) || null,
@@ -564,20 +625,28 @@ const persistSyncPayload = async ({ userId, gmailAccountId, syncStateId, syncPay
           positionTitle: normalizeText(extraction.positionTitle) || null,
           contactEmail: normalizeText(extraction.contactEmail) || null,
           confidence:
-            typeof extraction.confidence === "number" ? extraction.confidence : null,
+            typeof extraction.confidence === "number"
+              ? extraction.confidence
+              : null,
           needsReplyDraft: Boolean(extraction.needsReplyDraft),
           suggestedApplicationStatus:
             normalizeText(extraction.suggestedApplicationStatus) || null,
         },
       });
 
-      if (Boolean(extraction.needsReplyDraft) && normalizeText(message.draftReplyText)) {
+      if (
+        Boolean(extraction.needsReplyDraft) &&
+        normalizeText(message.draftReplyText)
+      ) {
         const latestReply = await tx.progressEmailReply.findFirst({
           where: { emailId: emailRecord.id },
           orderBy: { createdAt: "desc" },
         });
 
-        if (!latestReply || latestReply.draftText !== normalizeText(message.draftReplyText)) {
+        if (
+          !latestReply ||
+          latestReply.draftText !== normalizeText(message.draftReplyText)
+        ) {
           await tx.progressEmailReply.create({
             data: {
               userId,
@@ -592,21 +661,27 @@ const persistSyncPayload = async ({ userId, gmailAccountId, syncStateId, syncPay
       processedMessages += 1;
     }
 
-    const candidateGmailMessageIds = [...new Set(
-      persistedEmailMetadata.flatMap((item) =>
-        [item.gmailMessageId, item.parentGmailMessageId].filter(Boolean),
+    const candidateGmailMessageIds = [
+      ...new Set(
+        persistedEmailMetadata.flatMap((item) =>
+          [item.gmailMessageId, item.parentGmailMessageId].filter(Boolean),
+        ),
       ),
-    )];
-    const candidateRfcMessageIds = [...new Set(
-      persistedEmailMetadata.flatMap((item) =>
-        [
-          item.rfcMessageId,
-          item.parentRfcMessageId,
-          item.inReplyTo,
-          ...(Array.isArray(item.referencesHeader) ? item.referencesHeader : []),
-        ].filter(Boolean),
+    ];
+    const candidateRfcMessageIds = [
+      ...new Set(
+        persistedEmailMetadata.flatMap((item) =>
+          [
+            item.rfcMessageId,
+            item.parentRfcMessageId,
+            item.inReplyTo,
+            ...(Array.isArray(item.referencesHeader)
+              ? item.referencesHeader
+              : []),
+          ].filter(Boolean),
+        ),
       ),
-    )];
+    ];
 
     const lookupEmails =
       candidateGmailMessageIds.length || candidateRfcMessageIds.length
@@ -631,7 +706,10 @@ const persistSyncPayload = async ({ userId, gmailAccountId, syncStateId, syncPay
         : [];
 
     const byGmailMessageId = new Map(
-      lookupEmails.map((email) => [normalizeText(email.gmailMessageId), email.id]),
+      lookupEmails.map((email) => [
+        normalizeText(email.gmailMessageId),
+        email.id,
+      ]),
     );
     const byRfcMessageId = new Map(
       lookupEmails
@@ -720,7 +798,9 @@ const listApplicationsForUser = async (userId) => {
 };
 
 const deleteApplicationsForUser = async (userId, applicationIds) => {
-  const uniqueApplicationIds = [...new Set((applicationIds || []).filter(Boolean))];
+  const uniqueApplicationIds = [
+    ...new Set((applicationIds || []).filter(Boolean)),
+  ];
   if (!uniqueApplicationIds.length) {
     throw createHttpError("At least one application must be selected", 400);
   }
@@ -737,9 +817,14 @@ const deleteApplicationsForUser = async (userId, applicationIds) => {
     },
   });
 
-  const ownedApplicationIds = ownedApplications.map((application) => application.id);
+  const ownedApplicationIds = ownedApplications.map(
+    (application) => application.id,
+  );
   if (!ownedApplicationIds.length) {
-    throw createHttpError("No matching applications were found for deletion", 404);
+    throw createHttpError(
+      "No matching applications were found for deletion",
+      404,
+    );
   }
 
   const emailRecords = await prisma.progressEmail.findMany({
@@ -823,7 +908,11 @@ const listEmailsForApplication = async (userId, applicationId) => {
         },
       },
     },
-    orderBy: [{ receivedAt: "desc" }, { sentAt: "desc" }, { createdAt: "desc" }],
+    orderBy: [
+      { receivedAt: "desc" },
+      { sentAt: "desc" },
+      { createdAt: "desc" },
+    ],
   });
 
   return {
@@ -856,7 +945,10 @@ const getInviteReplyDraftByEmailId = async (userId, emailId) => {
   const rootEmail = await resolveRootEmailForUser(userId, selectedEmail);
   const intent = rootEmail.intelligence?.intent || "unknown";
   if (intent !== "invite") {
-    throw createHttpError("Reply draft is only available for invite emails", 400);
+    throw createHttpError(
+      "Reply draft is only available for invite emails",
+      400,
+    );
   }
 
   const latestReply = await prisma.progressEmailReply.findFirst({
@@ -882,8 +974,14 @@ const getInviteReplyDraftByEmailId = async (userId, emailId) => {
     where: { id: userId },
     select: { fullName: true, email: true },
   });
-  const { orderedReplies } = await loadThreadReplyRecordsForRoot(userId, rootEmail.id);
-  const conversationMessages = buildConversationMessagesForAi(rootEmail, orderedReplies);
+  const { orderedReplies } = await loadThreadReplyRecordsForRoot(
+    userId,
+    rootEmail.id,
+  );
+  const conversationMessages = buildConversationMessagesForAi(
+    rootEmail,
+    orderedReplies,
+  );
 
   const aiDraft = await requestAiService("/progress-tracking/reply-draft", {
     user: {
@@ -904,7 +1002,10 @@ const getInviteReplyDraftByEmailId = async (userId, emailId) => {
 
   const draftText = formatDraftEmailText(aiDraft?.draftText);
   if (!draftText) {
-    throw createHttpError("AI service returned an empty invite reply draft.", 502);
+    throw createHttpError(
+      "AI service returned an empty invite reply draft.",
+      502,
+    );
   }
 
   const savedReply = await prisma.progressEmailReply.create({
@@ -940,14 +1041,22 @@ const confirmInviteReplySend = async (userId, emailId, draftText) => {
     throw createHttpError("Draft text is required", 400);
   }
 
-  const { account, accessToken } = await getFreshGmailAccessContextForUser(userId);
+  const { account, accessToken } =
+    await getFreshGmailAccessContextForUser(userId);
   const latestReplyForRoot = await prisma.progressEmailReply.findFirst({
     where: { emailId: rootEmail.id },
     orderBy: { createdAt: "desc" },
   });
-  const { orderedReplies } = await loadThreadReplyRecordsForRoot(userId, rootEmail.id);
-  const conversationRows = sortEmailsChronologically([rootEmail, ...orderedReplies]);
-  const latestThreadMessage = conversationRows[conversationRows.length - 1] || rootEmail;
+  const { orderedReplies } = await loadThreadReplyRecordsForRoot(
+    userId,
+    rootEmail.id,
+  );
+  const conversationRows = sortEmailsChronologically([
+    rootEmail,
+    ...orderedReplies,
+  ]);
+  const latestThreadMessage =
+    conversationRows[conversationRows.length - 1] || rootEmail;
   const replyReferences = [
     ...new Set(
       [
@@ -998,7 +1107,9 @@ const confirmInviteReplySend = async (userId, emailId, draftText) => {
         sentAt: new Date(),
         sentMessageId: normalizeText(sendResult?.sentMessageId) || null,
         sentThreadId:
-          normalizeText(sendResult?.threadId) || rootEmail.gmailThreadId || null,
+          normalizeText(sendResult?.threadId) ||
+          rootEmail.gmailThreadId ||
+          null,
       },
     });
 
@@ -1007,7 +1118,8 @@ const confirmInviteReplySend = async (userId, emailId, draftText) => {
         emailId: rootEmail.id,
         status: updatedReply.status,
         deliveryId: updatedReply.sentMessageId || updatedReply.id,
-        confirmedAt: toIsoDate(updatedReply.confirmedAt) || new Date().toISOString(),
+        confirmedAt:
+          toIsoDate(updatedReply.confirmedAt) || new Date().toISOString(),
         confirmedDraftText: trimmedDraft,
       },
     };
@@ -1016,7 +1128,8 @@ const confirmInviteReplySend = async (userId, emailId, draftText) => {
       where: { id: pendingReply.id },
       data: {
         status: "failed",
-        errorMessage: error instanceof Error ? error.message : "Failed to send reply.",
+        errorMessage:
+          error instanceof Error ? error.message : "Failed to send reply.",
       },
     });
     throw error;
@@ -1033,7 +1146,8 @@ const disconnectGmailForUser = async (userId) =>
   disconnectGmailAccountForUser(userId);
 
 const syncProgressTrackingForUser = async (userId) => {
-  const { account, syncState, accessToken } = await getFreshGmailAccessContextForUser(userId);
+  const { account, syncState, accessToken } =
+    await getFreshGmailAccessContextForUser(userId);
 
   const applications = await prisma.progressApplication.findMany({
     where: { userId },
@@ -1090,13 +1204,14 @@ const syncProgressTrackingForUser = async (userId) => {
         processedMessages: persisted.processedMessages,
         upsertedApplications: persisted.upsertedApplications,
         scannedMessages:
-          typeof aiResult?.scannedMessages === "number" ? aiResult.scannedMessages : 0,
+          typeof aiResult?.scannedMessages === "number"
+            ? aiResult.scannedMessages
+            : 0,
         relevantMessages:
           typeof aiResult?.relevantMessages === "number"
             ? aiResult.relevantMessages
             : persisted.processedMessages,
-        firstSyncCompletedAt:
-          syncState.firstSyncCompletedAt || new Date(),
+        firstSyncCompletedAt: syncState.firstSyncCompletedAt || new Date(),
       },
     };
   } catch (error) {
