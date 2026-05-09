@@ -19,6 +19,7 @@ import {
   generateManualProfileForUserDummy,
 } from "./pm.service.js";
 import { maxFileSizeBytes, removeFileSafe } from "./pm.storage.js";
+import { initSseHeaders, sendSseEvent } from "../events/sse.js";
 
 const formatZodError = (error) => {
   if (!error?.issues) {
@@ -178,11 +179,6 @@ const downloadDocument = async (req, res, next) => {
   }
 };
 
-const sendSseEvent = (res, eventName, payload) => {
-  res.write(`event: ${eventName}\n`);
-  res.write(`data: ${JSON.stringify(payload)}\n\n`);
-};
-
 const isAbortError = (error) =>
   error?.name === "AbortError" || error?.code === "ABORT_ERR";
 
@@ -206,12 +202,7 @@ const generateManualProfileStream = async (req, res, next) => {
     const payload = validate(generateManualProfileSchema, req.body || {});
     const sectionName = payload.sectionName || "Manual Entry";
 
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache, no-transform");
-    res.setHeader("Connection", "keep-alive");
-    if (typeof res.flushHeaders === "function") {
-      res.flushHeaders();
-    }
+    initSseHeaders(res);
 
     sendSseEvent(res, "started", {
       message: `${sectionName} generation started.`,

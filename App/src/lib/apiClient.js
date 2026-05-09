@@ -1,3 +1,5 @@
+import { streamSseResponse } from "./sseClient";
+
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:10001/api";
 
@@ -138,6 +140,30 @@ export const profileManagementApi = {
       { method: "GET", responseType: "blob" },
       token,
     ),
+  subscribeEvents: async ({ onEvent = () => {}, signal }, token) => {
+    const response = await fetch(`${API_BASE_URL}/events`, {
+      method: "GET",
+      headers: buildHeaders(token),
+      credentials: "include",
+      signal,
+    });
+
+    if (!response.ok) {
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch {
+        // Ignore parsing failure and use fallback message.
+      }
+
+      throw new Error(payload?.error || "Failed to subscribe to events");
+    }
+
+    await streamSseResponse(response, {
+      onEvent,
+      errorEventMessage: "Event stream failed",
+    });
+  },
   generateManualProfileStream: async (
     { sectionName, onEvent = () => {}, signal },
     token,
@@ -163,65 +189,10 @@ export const profileManagementApi = {
 
       throw new Error(payload?.error || "Failed to start profile generation");
     }
-
-    if (!response.body) {
-      throw new Error("Streaming is not supported in this browser");
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    const processMessage = (rawMessage) => {
-      const lines = rawMessage
-        .split("\n")
-        .map((line) => line.trim())
-        .filter(Boolean);
-      if (!lines.length) {
-        return;
-      }
-
-      const eventLine = lines.find((line) => line.startsWith("event:"));
-      const dataLines = lines
-        .filter((line) => line.startsWith("data:"))
-        .map((line) => line.slice(5).trim());
-
-      const eventName = eventLine ? eventLine.slice(6).trim() : "message";
-      const dataText = dataLines.join("\n");
-
-      let payload = {};
-      if (dataText) {
-        try {
-          payload = JSON.parse(dataText);
-        } catch {
-          payload = { message: dataText };
-        }
-      }
-
-      onEvent(eventName, payload);
-      if (eventName === "error") {
-        throw new Error(payload?.error || "Profile generation failed");
-      }
-    };
-
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) {
-        break;
-      }
-
-      buffer += decoder.decode(value, { stream: true });
-      const messages = buffer.split("\n\n");
-      buffer = messages.pop() || "";
-
-      for (const message of messages) {
-        processMessage(message);
-      }
-    }
-
-    if (buffer.trim()) {
-      processMessage(buffer);
-    }
+    await streamSseResponse(response, {
+      onEvent,
+      errorEventMessage: "Profile generation failed",
+    });
   },
 };
 

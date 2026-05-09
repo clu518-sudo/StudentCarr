@@ -4,6 +4,7 @@ import {
   DOCUMENT_PARSER_STATUS,
   EXTRACTION_METHOD,
 } from "./constants.js";
+import { emitUserEvent, USER_EVENT_TYPES } from "../events/index.js";
 import {
   extractPdfTextWithLangChain,
   normalizeExtractedText,
@@ -22,10 +23,57 @@ const loadDocumentForParsing = async (documentId) =>
     where: { id: documentId },
     select: {
       id: true,
+      userId: true,
       path: true,
       parserStatus: true,
     },
   });
+
+const documentEventSelect = {
+  userId: true,
+  id: true,
+  documentType: true,
+  originalName: true,
+  mimeType: true,
+  size: true,
+  status: true,
+  parserStatus: true,
+  extractionMethod: true,
+  pageCount: true,
+  parserError: true,
+  parserStartedAt: true,
+  parserCompletedAt: true,
+  parserUpdatedAt: true,
+  uploadedAt: true,
+};
+
+const mapDocumentEventPayload = (document) => ({
+  id: document.id,
+  documentType: document.documentType,
+  originalName: document.originalName,
+  mimeType: document.mimeType,
+  size: document.size,
+  status: document.parserStatus || document.status,
+  uploadStatus: document.status,
+  parserStatus: document.parserStatus,
+  extractionMethod: document.extractionMethod,
+  pageCount: document.pageCount,
+  parserError: document.parserError,
+  parserStartedAt: document.parserStartedAt,
+  parserCompletedAt: document.parserCompletedAt,
+  parserUpdatedAt: document.parserUpdatedAt,
+  uploadedAt: document.uploadedAt,
+});
+
+const emitDocumentParsingUpdated = (document) => {
+  if (!document?.userId) {
+    return;
+  }
+
+  emitUserEvent(document.userId, USER_EVENT_TYPES.DOCUMENT_PARSING_UPDATED, {
+    document: mapDocumentEventPayload(document),
+  });
+};
 
 const listDocumentsNeedingParsing = async () =>
   prisma.profileDocument.findMany({
@@ -112,6 +160,12 @@ const parseDocumentById = async (documentId) => {
     return { status: "deleted" };
   }
 
+  const processingDocument = await prisma.profileDocument.findUnique({
+    where: { id: documentId },
+    select: documentEventSelect,
+  });
+  emitDocumentParsingUpdated(processingDocument);
+
   try {
     const embeddedResult = await runLangChainExtraction(document.path);
     let text = normalizeExtractedText(embeddedResult?.text || "");
@@ -130,7 +184,7 @@ const parseDocumentById = async (documentId) => {
     }
 
     const completedAt = new Date();
-    await prisma.profileDocument.update({
+    const completedDocument = await prisma.profileDocument.update({
       where: { id: documentId },
       data: {
         parserStatus: DOCUMENT_PARSER_STATUS.COMPLETED,
@@ -140,7 +194,9 @@ const parseDocumentById = async (documentId) => {
         parserError: null,
         parserCompletedAt: completedAt,
       },
+      select: documentEventSelect,
     });
+    emitDocumentParsingUpdated(completedDocument);
 
     return {
       status: DOCUMENT_PARSER_STATUS.COMPLETED,
@@ -161,6 +217,12 @@ const parseDocumentById = async (documentId) => {
         parserCompletedAt: null,
       },
     });
+
+    const failedDocument = await prisma.profileDocument.findUnique({
+      where: { id: documentId },
+      select: documentEventSelect,
+    });
+    emitDocumentParsingUpdated(failedDocument);
 
     return {
       status: DOCUMENT_PARSER_STATUS.FAILED,

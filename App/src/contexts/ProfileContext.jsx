@@ -14,6 +14,7 @@ const ProfileContext = createContext(null);
 
 const activeParserStatuses = new Set(["pending", "processing"]);
 const documentPollingIntervalMs = 3000;
+const sseReconnectDelaysMs = [1000, 2000, 5000, 10000, 30000];
 
 export const emptyProfile = {
   personalInfo: {
@@ -84,6 +85,21 @@ const hasActiveDocumentParsing = (documents = []) =>
     ),
   );
 
+const upsertDocumentById = (documents = [], nextDocument) => {
+  if (!nextDocument?.id) {
+    return documents;
+  }
+
+  const existingIndex = documents.findIndex((item) => item.id === nextDocument.id);
+  if (existingIndex === -1) {
+    return [nextDocument, ...documents];
+  }
+
+  const nextDocuments = [...documents];
+  nextDocuments[existingIndex] = { ...documents[existingIndex], ...nextDocument };
+  return nextDocuments;
+};
+
 export const useProfile = () => {
   const context = useContext(ProfileContext);
   if (!context) {
@@ -103,9 +119,13 @@ export const ProfileProvider = ({ children }) => {
   const [uploadingByType, setUploadingByType] = useState({});
   const [downloadingDocumentId, setDownloadingDocumentId] = useState(null);
   const [generatingManual, setGeneratingManual] = useState(false);
+  const [eventsConnected, setEventsConnected] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const generateAbortControllerRef = useRef(null);
+  const eventsAbortControllerRef = useRef(null);
+  const eventsReconnectTimerRef = useRef(null);
+  const eventsReconnectAttemptRef = useRef(0);
   const hasLoadedProfileRef = useRef(false);
 
   const resetProfileState = useCallback(() => {
@@ -118,6 +138,7 @@ export const ProfileProvider = ({ children }) => {
     setUploadingByType({});
     setDownloadingDocumentId(null);
     setGeneratingManual(false);
+    setEventsConnected(false);
     setError("");
     setSuccessMessage("");
     hasLoadedProfileRef.current = false;
@@ -130,6 +151,13 @@ export const ProfileProvider = ({ children }) => {
 
     generateAbortControllerRef.current?.abort();
     generateAbortControllerRef.current = null;
+    eventsAbortControllerRef.current?.abort();
+    eventsAbortControllerRef.current = null;
+    if (eventsReconnectTimerRef.current) {
+      window.clearTimeout(eventsReconnectTimerRef.current);
+      eventsReconnectTimerRef.current = null;
+    }
+    eventsReconnectAttemptRef.current = 0;
     resetProfileState();
   }, [accessToken, resetProfileState]);
 
@@ -140,7 +168,8 @@ export const ProfileProvider = ({ children }) => {
       }
 
       try {
-        const docsResponse = await profileManagementApi.getDocuments(accessToken);
+        const docsResponse =
+          await profileManagementApi.getDocuments(accessToken);
         const nextDocuments = docsResponse?.data?.documents || [];
         setDocuments(nextDocuments);
         return nextDocuments;
@@ -200,7 +229,97 @@ export const ProfileProvider = ({ children }) => {
   }, [loadProfile]);
 
   useEffect(() => {
-    if (!accessToken || !hasActiveDocumentParsing(documents)) {
+    if (!accessToken) {
+      return undefined;
+    }
+
+    let isCancelled = false;
+
+    const clearReconnectTimer = () => {
+      if (eventsReconnectTimerRef.current) {
+        window.clearTimeout(eventsReconnectTimerRef.current);
+        eventsReconnectTimerRef.current = null;
+      }
+    };
+
+    const scheduleReconnect = () => {
+      if (isCancelled) {
+        return;
+      }
+
+      clearReconnectTimer();
+      const delayIndex = Math.min(
+        eventsReconnectAttemptRef.current,
+        sseReconnectDelaysMs.length - 1,
+      );
+      const delayMs = sseReconnectDelaysMs[delayIndex];
+      eventsReconnectAttemptRef.current += 1;
+
+      eventsReconnectTimerRef.current = window.setTimeout(() => {
+        if (!isCancelled) {
+          connectToEvents();
+        }
+      }, delayMs);
+    };
+
+    const connectToEvents = async () => {
+      clearReconnectTimer();
+      eventsAbortControllerRef.current?.abort();
+      const abortController = new AbortController();
+      eventsAbortControllerRef.current = abortController;
+
+      try {
+        await profileManagementApi.subscribeEvents(
+          {
+            signal: abortController.signal,
+            onEvent: (eventName, payload) => {
+              if (eventName === "connected") {
+                setEventsConnected(true);
+                eventsReconnectAttemptRef.current = 0;
+                return;
+              }
+
+              if (eventName === "document_parsing_updated" && payload?.document) {
+                setDocuments((prev) => upsertDocumentById(prev, payload.document));
+              }
+            },
+          },
+          accessToken,
+        );
+
+        if (!isCancelled) {
+          setEventsConnected(false);
+          scheduleReconnect();
+        }
+      } catch (streamError) {
+        if (isCancelled || streamError?.name === "AbortError") {
+          return;
+        }
+
+        setEventsConnected(false);
+        scheduleReconnect();
+      }
+    };
+
+    setEventsConnected(false);
+    connectToEvents();
+
+    return () => {
+      isCancelled = true;
+      setEventsConnected(false);
+      clearReconnectTimer();
+      eventsAbortControllerRef.current?.abort();
+      eventsAbortControllerRef.current = null;
+      eventsReconnectAttemptRef.current = 0;
+    };
+  }, [accessToken]);
+
+  useEffect(() => {
+    if (
+      !accessToken ||
+      eventsConnected ||
+      !hasActiveDocumentParsing(documents)
+    ) {
       return undefined;
     }
 
@@ -211,11 +330,16 @@ export const ProfileProvider = ({ children }) => {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [accessToken, documents, refreshDocuments]);
+  }, [accessToken, documents, eventsConnected, refreshDocuments]);
 
   useEffect(
     () => () => {
       generateAbortControllerRef.current?.abort();
+      eventsAbortControllerRef.current?.abort();
+      if (eventsReconnectTimerRef.current) {
+        window.clearTimeout(eventsReconnectTimerRef.current);
+        eventsReconnectTimerRef.current = null;
+      }
     },
     [],
   );
@@ -381,7 +505,9 @@ export const ProfileProvider = ({ children }) => {
                 const generatedProfile = mergeManualProfile(
                   payload?.result?.manualProfile || emptyProfile,
                 );
-                const generatedDocuments = Array.isArray(payload?.result?.documents)
+                const generatedDocuments = Array.isArray(
+                  payload?.result?.documents,
+                )
                   ? payload.result.documents
                   : documents;
 
@@ -487,8 +613,6 @@ export const ProfileProvider = ({ children }) => {
   );
 
   return (
-    <ProfileContext.Provider value={value}>
-      {children}
-    </ProfileContext.Provider>
+    <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>
   );
 };
