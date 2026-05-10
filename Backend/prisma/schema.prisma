@@ -12,6 +12,17 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model ApiKey {
+  id          String   @id @default(cuid())
+  hashedKey   String   @unique
+  label       String?
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  lastUsedAt  DateTime?
+  revoked     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
 model User {
   id              String        @id @default(uuid())
   email           String        @unique
@@ -29,6 +40,7 @@ model User {
   progressApplications ProgressApplication[]
   progressEmails  ProgressEmail[]
   progressReplies ProgressEmailReply[]
+  apiKey          ApiKey[]
 
   @@map("users")
 }
