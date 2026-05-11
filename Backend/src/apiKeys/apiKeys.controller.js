@@ -1,4 +1,3 @@
-import { success } from "zod";
 import {
   createApiSchema,
   idParamsSchema,
@@ -21,7 +20,7 @@ const createApiKey = async (req, res, next) => {
     const payload = validate(createApiSchema, req.body);
 
     // req.user is set by requireAuth middleware
-    const result = apiKeyService.createApiKey({
+    const result = await apiKeyService.createApiKey({
       userId: req.user.id,
       label: payload.label,
     });
@@ -42,9 +41,9 @@ const createApiKey = async (req, res, next) => {
 
 // GET api/keys
 // wraped list hashed apiKeys
-const listApiKeys = (req, res, next) => {
+const listApiKeys = async (req, res, next) => {
   try {
-    const data = apiKeyService.listActiveApiKeys({
+    const data = await apiKeyService.listActiveApiKeys({
       userId: req.user.id,
     });
 
@@ -59,11 +58,11 @@ const listApiKeys = (req, res, next) => {
 
 // DELETE /api/keys/:id
 // delete(revoke) apikey
-const revokeApiKey = (req, res, next) => {
+const revokeApiKey = async (req, res, next) => {
   try {
     const { id } = validate(idParamsSchema, req.params);
 
-    const result = apiKeyService.revokeApiKey({
+    const result = await apiKeyService.revokeApiKey({
       userId: req.user.id,
       keyId: id,
     });

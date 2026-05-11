@@ -8,7 +8,7 @@ const KEY_RANDOM_BYTES = 32; // 32 random bytes => 64 hex chars. 1 bytes = 8 bit
 // Convert raw API key -> SHA-256 hash (hex string).
 // We store this hash in DB (never raw key) for security.
 const hashApiKey = (rawKey) =>
-  crypto.createHash("sha254").update(rawKey).digest("hex");
+  crypto.createHash("sha256").update(rawKey).digest("hex");
 
 // Function used to
 // Generate raw key in required format: sc_ + 32-byte random hex.
@@ -41,7 +41,7 @@ const createApiKey = async ({ userId, label }) => {
     select: {
       id: true,
       label: true,
-      createAt: true,
+      createdAt: true,
     },
   });
 
