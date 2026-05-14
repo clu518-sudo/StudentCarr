@@ -1,12 +1,14 @@
 import React from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLogin } from '../../hooks/useLogin';
 
 // Login View - Pure UI component with no business logic
 const LoginView = () => {
+  const location = useLocation();
   const { isAuthenticated } = useAuth();
-  const { formData, errors, loading, handleInputChange, handleLogin } = useLogin();
+  const { formData, errors, loading, handleInputChange, handleLogin, handleGoogleLogin } = useLogin();
+  const loginMessage = new URLSearchParams(location.search).get("message");
 
   // Redirect if already authenticated
   if (isAuthenticated) {
@@ -30,6 +32,11 @@ const LoginView = () => {
             {errors.general && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
                 {errors.general}
+              </div>
+            )}
+            {loginMessage && !errors.general && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                {loginMessage}
               </div>
             )}
 
@@ -87,6 +94,24 @@ const LoginView = () => {
               ) : (
                 'Sign In'
               )}
+            </button>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="bg-white px-2 text-gray-500">or</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className={`w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed`}
+            >
+              Continue with Google
             </button>
           </form>
 

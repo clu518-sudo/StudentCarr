@@ -37,6 +37,17 @@ const formatZodError = (error) => {
     .join(", ");
 };
 
+const getFrontendAuthUrl = (path, message = "") => {
+  const baseUrl = String(env.appBaseUrl || env.corsOrigin || "http://localhost:10003")
+    .split(",")[0]
+    .trim();
+  const redirectUrl = new URL(path, baseUrl);
+  if (message) {
+    redirectUrl.searchParams.set("message", message);
+  }
+  return redirectUrl.toString();
+};
+
 // implement signup
 const signup = async (req, res, next) => {
   try {
@@ -85,6 +96,26 @@ const login = async (req, res, next) => {
   }
 };
 
+const startGoogleLogin = async (req, res, next) => {
+  try {
+    const result = await authService.startGoogleLogin();
+    return res.json({ success: true, data: result });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const googleCallback = async (req, res) => {
+  try {
+    const result = await authService.completeGoogleLogin(req.query || {}, req);
+    setRefreshCookie(res, result.refreshToken);
+    return res.redirect(getFrontendAuthUrl("/dashboard"));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Google login failed.";
+    return res.redirect(getFrontendAuthUrl("/login", message));
+  }
+};
+
 // when access token expired, refresh access token and refresh token at the same time, recent refresh token as verification key.
 const refresh = async (req, res, next) => {
   try {
@@ -125,4 +156,4 @@ const me = async (req, res) =>
     },
   });
 
-export { signup, login, refresh, logout, me };
+export { signup, login, startGoogleLogin, googleCallback, refresh, logout, me };

@@ -27,6 +27,8 @@ model User {
   id              String        @id @default(uuid())
   email           String        @unique
   passwordHash    String        @map("password_hash")
+  authProvider    String        @default("password") @map("auth_provider")
+  googleSub       String?       @unique @map("google_sub")
   fullName        String?       @map("full_name")
   isEmailVerified Boolean       @default(false) @map("is_email_verified")
   createdAt       DateTime      @default(now()) @map("created_at")
@@ -43,6 +45,16 @@ model User {
   apiKey          ApiKey[]
 
   @@map("users")
+}
+
+model AuthOAuthState {
+  id        String   @id @default(uuid())
+  stateHash String   @unique @map("state_hash")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([expiresAt])
+  @@map("auth_oauth_states")
 }
 
 model AuthSession {

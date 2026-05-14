@@ -34,6 +34,7 @@ const ProgressView = () => {
     selectedEmailId,
     isInviteEmail,
     gmailConnected,
+    isGoogleLoginSession,
     isSyncRunning,
     expandedEmails,
     selectedApplicationsCount,
@@ -102,6 +103,11 @@ const ProgressView = () => {
                     ? ` Last sync ${new Date(gmailStatus.sync.lastSyncCompletedAt).toLocaleString()}.`
                     : " No sync has been completed yet."}
                 </p>
+              ) : isGoogleLoginSession ? (
+                <p>
+                  Gmail access is managed by your Google sign-in. Use Sync to fetch
+                  progress emails.
+                </p>
               ) : (
                 <p>Connect your Gmail account to sync job-hunt emails.</p>
               )}
@@ -113,10 +119,12 @@ const ProgressView = () => {
               type="button"
               className="rounded-md bg-white px-4 py-2 text-sm font-medium text-indigo-700 shadow-sm disabled:cursor-not-allowed disabled:opacity-70"
               onClick={handleStartGmailConnect}
-              disabled={connectingGmail}
+              disabled={connectingGmail || isGoogleLoginSession}
             >
               {connectingGmail
                 ? "Connecting..."
+                : isGoogleLoginSession
+                  ? "Connected via Google Login"
                 : gmailConnected
                   ? "Reconnect Gmail"
                   : "Connect Gmail"}

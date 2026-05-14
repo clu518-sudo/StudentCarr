@@ -10,7 +10,7 @@ export const useLogin = () => {
   });
   const [errors, setErrors] = useState({});
   
-  const { login, loading } = useAuth();
+  const { login, loginWithGoogle, loading } = useAuth();
   const navigate = useNavigate();
 
   const handleInputChange = (field, value) => {
@@ -74,11 +74,20 @@ export const useLogin = () => {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    setErrors({});
+    const result = await loginWithGoogle();
+    if (!result.success) {
+      setErrors({ general: result.error || "Google login failed" });
+    }
+  };
+
   return {
     formData,
     errors,
     loading,
     handleInputChange,
-    handleLogin
+    handleLogin,
+    handleGoogleLogin
   };
 };

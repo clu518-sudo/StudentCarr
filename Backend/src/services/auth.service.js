@@ -1,11 +1,88 @@
 import argon2 from "argon2";
+import env from "../config/env.js";
 import prisma from "../lib/prisma.js";
-import { hashValue } from "../lib/crypto.js";
+import { encryptText, generateOpaqueToken, hashValue } from "../lib/crypto.js";
 import {
   signAccessToken,
   signRefreshToken,
   verifyRefreshToken,
 } from "../lib/token.js";
+
+const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
+const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+const GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo";
+const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+const GOOGLE_LOGIN_SCOPE_LIST = [
+  "openid",
+  "email",
+  "profile",
+  "https://www.googleapis.com/auth/gmail.readonly",
+  "https://www.googleapis.com/auth/gmail.send",
+];
+
+const normalizeEmail = (value) =>
+  typeof value === "string" ? value.trim().toLowerCase() : "";
+
+const createHttpError = (message, statusCode = 500) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+};
+
+const assertGoogleLoginConfigured = () => {
+  if (
+    !env.googleLoginClientId ||
+    !env.googleLoginClientSecret ||
+    !env.googleLoginRedirectUri
+  ) {
+    throw createHttpError(
+      "Google login is not configured. Set GOOGLE_LOGIN_CLIENT_ID, GOOGLE_LOGIN_CLIENT_SECRET, and GOOGLE_LOGIN_REDIRECT_URI.",
+      500,
+    );
+  }
+};
+
+const fetchJson = async (url, options, fallbackMessage) => {
+  const response = await fetch(url, options);
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw createHttpError(
+      payload?.error_description || payload?.error || fallbackMessage,
+      502,
+    );
+  }
+  return payload;
+};
+
+const exchangeCodeForTokens = async (code) => {
+  const body = new URLSearchParams({
+    code,
+    client_id: env.googleLoginClientId,
+    client_secret: env.googleLoginClientSecret,
+    redirect_uri: env.googleLoginRedirectUri,
+    grant_type: "authorization_code",
+  });
+
+  return fetchJson(
+    GOOGLE_TOKEN_URL,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    },
+    "Failed to exchange Google OAuth code.",
+  );
+};
+
+const fetchGoogleUserInfo = async (accessToken) =>
+  fetchJson(
+    GOOGLE_USERINFO_URL,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+    "Failed to verify Google account identity.",
+  );
 
 /*
 collect user-agent info and ip(need to hash)
@@ -23,6 +100,7 @@ const toSafeUser = (user) => ({
   email: user.email,
   fullName: user.fullName,
   isEmailVerified: user.isEmailVerified,
+  authProvider: user.authProvider,
   createdAt: user.createdAt,
 });
 
@@ -60,9 +138,82 @@ const writeAudit = async (eventType, userId, metadata) => {
   });
 };
 
+const createAuthResult = async (user, req, eventType, metadata = null) => {
+  const accessToken = signAccessToken(user.id);
+  const { token: refreshToken, sessionId } = signRefreshToken(user.id);
+  await createSession(user.id, refreshToken, sessionId, req);
+  await writeAudit(eventType, user.id, metadata);
+
+  return {
+    user: toSafeUser(user),
+    accessToken,
+    refreshToken,
+  };
+};
+
+const upsertGmailAccountForGoogleLogin = async (tx, user, tokens, userInfo) => {
+  const existingAccount = await tx.gmailAccount.findUnique({
+    where: { userId: user.id },
+  });
+  const accessToken = tokens.access_token || "";
+  const googleEmail = normalizeEmail(userInfo.email) || user.email;
+  const expiresAt = tokens.expires_in
+    ? new Date(Date.now() + Number(tokens.expires_in) * 1000)
+    : existingAccount?.expiresAt || null;
+  const refreshToken = tokens.refresh_token || "";
+  const fallbackRefreshToken = existingAccount?.refreshTokenEncrypted
+    ? existingAccount.refreshTokenEncrypted
+    : null;
+
+  const account = await tx.gmailAccount.upsert({
+    where: { userId: user.id },
+    update: {
+      googleSub: String(userInfo.id || existingAccount?.googleSub || ""),
+      googleEmail,
+      displayName: userInfo.name || existingAccount?.displayName || null,
+      scope:
+        typeof tokens.scope === "string"
+          ? tokens.scope
+          : existingAccount?.scope || GOOGLE_LOGIN_SCOPE_LIST.join(" "),
+      accessTokenEncrypted: accessToken ? encryptText(accessToken) : null,
+      refreshTokenEncrypted: refreshToken
+        ? encryptText(refreshToken)
+        : fallbackRefreshToken,
+      tokenType: tokens.token_type || existingAccount?.tokenType || "Bearer",
+      expiresAt,
+      connectedAt: existingAccount?.connectedAt || new Date(),
+      lastVerifiedAt: new Date(),
+      isActive: true,
+    },
+    create: {
+      userId: user.id,
+      googleSub: String(userInfo.id || googleEmail),
+      googleEmail,
+      displayName: userInfo.name || null,
+      scope:
+        typeof tokens.scope === "string"
+          ? tokens.scope
+          : GOOGLE_LOGIN_SCOPE_LIST.join(" "),
+      accessTokenEncrypted: accessToken ? encryptText(accessToken) : null,
+      refreshTokenEncrypted: refreshToken ? encryptText(refreshToken) : null,
+      tokenType: tokens.token_type || "Bearer",
+      expiresAt,
+      lastVerifiedAt: new Date(),
+      isActive: true,
+    },
+    select: { id: true },
+  });
+
+  await tx.gmailSyncState.upsert({
+    where: { gmailAccountId: account.id },
+    update: {},
+    create: { gmailAccountId: account.id },
+  });
+};
+
 // the service of signup
 const signup = async ({ email, password, fullName }, req) => {
-  const normalizedEmail = email.trim().toLowerCase();
+  const normalizedEmail = normalizeEmail(email);
   const existing = await prisma.user.findUnique({
     where: { email: normalizedEmail },
   });
@@ -83,25 +234,17 @@ const signup = async ({ email, password, fullName }, req) => {
     data: {
       email: normalizedEmail,
       passwordHash,
+      authProvider: "password",
       fullName: fullName || null,
     },
   });
 
-  const accessToken = signAccessToken(user.id);
-  const { token: refreshToken, sessionId } = signRefreshToken(user.id);
-  await createSession(user.id, refreshToken, sessionId, req);
-  await writeAudit("signup_success", user.id, { email: normalizedEmail });
-
-  return {
-    user: toSafeUser(user),
-    accessToken,
-    refreshToken,
-  };
+  return createAuthResult(user, req, "signup_success", { email: normalizedEmail });
 };
 
 // the service of login
 const login = async ({ email, password }, req) => {
-  const normalizedEmail = email.trim().toLowerCase();
+  const normalizedEmail = normalizeEmail(email);
   const user = await prisma.user.findUnique({
     where: { email: normalizedEmail },
   });
@@ -116,7 +259,10 @@ const login = async ({ email, password }, req) => {
     throw err;
   }
 
-  const isValidPassword = await argon2.verify(user.passwordHash, password);
+  const isValidPassword =
+    typeof user.passwordHash === "string" &&
+    user.passwordHash.length > 0 &&
+    (await argon2.verify(user.passwordHash, password));
   if (!isValidPassword) {
     await writeAudit("login_failed", user.id, {
       email: normalizedEmail,
@@ -127,16 +273,16 @@ const login = async ({ email, password }, req) => {
     throw err;
   }
 
-  const accessToken = signAccessToken(user.id);
-  const { token: refreshToken, sessionId } = signRefreshToken(user.id);
-  await createSession(user.id, refreshToken, sessionId, req);
-  await writeAudit("login_success", user.id, { email: normalizedEmail });
-
-  return {
-    user: toSafeUser(user),
-    accessToken,
-    refreshToken,
-  };
+  const userForSession =
+    user.authProvider === "password"
+      ? user
+      : await prisma.user.update({
+          where: { id: user.id },
+          data: { authProvider: "password" },
+        });
+  return createAuthResult(userForSession, req, "login_success", {
+    email: normalizedEmail,
+  });
 };
 
 const refreshSession = async (refreshToken, req) => {
@@ -193,6 +339,112 @@ const refreshSession = async (refreshToken, req) => {
   };
 };
 
+const startGoogleLogin = async () => {
+  assertGoogleLoginConfigured();
+
+  const state = generateOpaqueToken();
+  const stateHash = hashValue(state);
+  await prisma.authOAuthState.create({
+    data: {
+      stateHash,
+      expiresAt: new Date(Date.now() + OAUTH_STATE_TTL_MS),
+    },
+  });
+
+  const authUrl = new URL(GOOGLE_AUTH_URL);
+  authUrl.searchParams.set("client_id", env.googleLoginClientId);
+  authUrl.searchParams.set("redirect_uri", env.googleLoginRedirectUri);
+  authUrl.searchParams.set("response_type", "code");
+  authUrl.searchParams.set("access_type", "offline");
+  authUrl.searchParams.set("prompt", "consent");
+  authUrl.searchParams.set("include_granted_scopes", "true");
+  authUrl.searchParams.set("scope", GOOGLE_LOGIN_SCOPE_LIST.join(" "));
+  authUrl.searchParams.set("state", state);
+
+  return {
+    authUrl: authUrl.toString(),
+  };
+};
+
+const completeGoogleLogin = async ({ code, state, error }, req) => {
+  if (error) {
+    throw createHttpError(String(error), 400);
+  }
+
+  if (!code || !state) {
+    throw createHttpError("Missing Google OAuth code or state.", 400);
+  }
+
+  assertGoogleLoginConfigured();
+
+  const stateHash = hashValue(String(state));
+  const oauthState = await prisma.authOAuthState.findUnique({
+    where: { stateHash },
+  });
+  if (!oauthState || oauthState.expiresAt.getTime() < Date.now()) {
+    throw createHttpError("Google login session expired.", 400);
+  }
+
+  try {
+    const tokens = await exchangeCodeForTokens(String(code));
+    const accessToken = tokens.access_token || "";
+    if (!accessToken) {
+      throw createHttpError("Google login did not return an access token.", 502);
+    }
+
+    const googleUserInfo = await fetchGoogleUserInfo(accessToken);
+    const googleEmail = normalizeEmail(googleUserInfo.email);
+    if (!googleEmail) {
+      throw createHttpError("Google account email is unavailable.", 502);
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { email: googleEmail },
+    });
+
+    const user = await prisma.$transaction(async (tx) => {
+      const userRecord = existingUser
+        ? await tx.user.update({
+            where: { id: existingUser.id },
+            data: {
+              authProvider: "google",
+              googleSub: String(
+                googleUserInfo.id || existingUser.googleSub || "",
+              ),
+              fullName: existingUser.fullName || googleUserInfo.name || null,
+              isEmailVerified: true,
+            },
+          })
+        : await tx.user.create({
+            data: {
+              email: googleEmail,
+              passwordHash: await argon2.hash(generateOpaqueToken(), {
+                type: argon2.argon2id,
+                memoryCost: 19456,
+                timeCost: 2,
+                parallelism: 1,
+              }),
+              authProvider: "google",
+              googleSub: String(googleUserInfo.id || googleEmail),
+              fullName: googleUserInfo.name || null,
+              isEmailVerified: true,
+            },
+          });
+
+      await upsertGmailAccountForGoogleLogin(tx, userRecord, tokens, googleUserInfo);
+      return userRecord;
+    });
+
+    return createAuthResult(user, req, "login_success_google", {
+      email: googleEmail,
+    });
+  } finally {
+    await prisma.authOAuthState.deleteMany({
+      where: { id: oauthState.id },
+    });
+  }
+};
+
 const logout = async (refreshToken) => {
   if (!refreshToken) {
     return;
@@ -210,4 +462,11 @@ const logout = async (refreshToken) => {
   }
 };
 
-export { signup, login, refreshSession, logout };
+export {
+  signup,
+  login,
+  startGoogleLogin,
+  completeGoogleLogin,
+  refreshSession,
+  logout,
+};

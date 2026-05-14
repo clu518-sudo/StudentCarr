@@ -20,6 +20,7 @@ const requireAuth = async (req, res, next) => {
         email: true,
         fullName: true,
         isEmailVerified: true,
+        authProvider: true,
         createdAt: true,
       },
     });

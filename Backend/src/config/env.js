@@ -43,6 +43,15 @@ const env = {
   gmailRedirectUri:
     process.env.GMAIL_REDIRECT_URI ||
     "http://localhost:10001/api/process-tracking/gmail/callback",
+  googleLoginClientId:
+    process.env.GOOGLE_LOGIN_CLIENT_ID || process.env.GMAIL_CLIENT_ID || "",
+  googleLoginClientSecret:
+    process.env.GOOGLE_LOGIN_CLIENT_SECRET ||
+    process.env.GMAIL_CLIENT_SECRET ||
+    "",
+  googleLoginRedirectUri:
+    process.env.GOOGLE_LOGIN_REDIRECT_URI ||
+    "http://localhost:10001/api/auth/google/callback",
   progressTrackingServiceBaseUrl:
     process.env.PROGRESS_TRACKING_SERVICE_BASE_URL || "http://127.0.0.1:10002",
 };

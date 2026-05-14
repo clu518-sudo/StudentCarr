@@ -22,7 +22,7 @@ export const useProgress = () => {
 };
 
 export const ProgressProvider = ({ children }) => {
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
   const [applications, setApplications] = useState([]);
   const [emailsByApplicationId, setEmailsByApplicationId] = useState({});
   const [expandedApplicationId, setExpandedApplicationId] = useState(null);
@@ -52,6 +52,7 @@ export const ProgressProvider = ({ children }) => {
   const selectedEmailId = selectedEmailDetail?.id || selectedEmail?.id || "";
   const isInviteEmail = selectedEmailDetail?.intent === "invite";
   const gmailConnected = Boolean(gmailStatus?.connected);
+  const isGoogleLoginSession = user?.authProvider === "google";
   const backendSyncRunning = gmailStatus?.sync?.status === "running";
   const isSyncRunning = syncingMailbox || backendSyncRunning;
 
@@ -438,7 +439,7 @@ export const ProgressProvider = ({ children }) => {
   );
 
   const handleStartGmailConnect = useCallback(async () => {
-    if (!accessToken) {
+    if (!accessToken || isGoogleLoginSession) {
       return;
     }
 
@@ -455,7 +456,7 @@ export const ProgressProvider = ({ children }) => {
       setError(connectError.message || "Failed to start Gmail connection.");
       setConnectingGmail(false);
     }
-  }, [accessToken]);
+  }, [accessToken, isGoogleLoginSession]);
 
   const handleDisconnectGmail = useCallback(async () => {
     if (!accessToken) {
@@ -580,6 +581,7 @@ export const ProgressProvider = ({ children }) => {
       selectedEmailId,
       isInviteEmail,
       gmailConnected,
+      isGoogleLoginSession,
       isSyncRunning,
       expandedEmails,
       selectedApplicationsCount,
@@ -623,6 +625,7 @@ export const ProgressProvider = ({ children }) => {
       selectedEmailId,
       isInviteEmail,
       gmailConnected,
+      isGoogleLoginSession,
       isSyncRunning,
       expandedEmails,
       selectedApplicationsCount,

@@ -82,6 +82,7 @@ export const apiRequest = async (path, options = {}, token = null) => {
 export const authApi = {
   signup: (body) => apiRequest("/auth/signup", { method: "POST", body }),
   login: (body) => apiRequest("/auth/login", { method: "POST", body }),
+  googleLoginStart: () => apiRequest("/auth/google/start", { method: "GET" }),
   refresh: () => apiRequest("/auth/refresh", { method: "POST" }),
   logout: () => apiRequest("/auth/logout", { method: "POST" }),
   me: (token) => apiRequest("/auth/me", { method: "GET" }, token),

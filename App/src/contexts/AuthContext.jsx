@@ -18,8 +18,14 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
 
+  const normalizeUser = (rawUser) => ({
+    ...rawUser,
+    authProvider: rawUser?.authProvider || "password",
+    name: rawUser?.fullName || rawUser?.email || "",
+  });
+
   const applyAuthState = (nextUser, nextToken) => {
-    setUser(nextUser);
+    setUser(normalizeUser(nextUser));
     setAccessToken(nextToken);
     setIsAuthenticated(Boolean(nextUser && nextToken));
   };
@@ -33,10 +39,7 @@ export const AuthProvider = ({ children }) => {
   const refreshSession = async () => {
     try {
       const response = await authApi.refresh();
-      const nextUser = {
-        ...response.data.user,
-        name: response.data.user.fullName || response.data.user.email,
-      };
+      const nextUser = normalizeUser(response.data.user);
       applyAuthState(nextUser, response.data.accessToken);
       return { success: true, user: nextUser, accessToken: response.data.accessToken };
     } catch (error) {
@@ -48,10 +51,7 @@ export const AuthProvider = ({ children }) => {
   const fetchMe = async (token) => {
     try {
       const response = await authApi.me(token || accessToken);
-      const nextUser = {
-        ...response.data.user,
-        name: response.data.user.fullName || response.data.user.email,
-      };
+      const nextUser = normalizeUser(response.data.user);
       setUser(nextUser);
       setIsAuthenticated(true);
       return { success: true, user: nextUser };
@@ -86,10 +86,7 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     try {
       const response = await authApi.login({ email, password });
-      const nextUser = {
-        ...response.data.user,
-        name: response.data.user.fullName || response.data.user.email,
-      };
+      const nextUser = normalizeUser(response.data.user);
 
       applyAuthState(nextUser, response.data.accessToken);
       return { success: true };
@@ -100,14 +97,28 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const loginWithGoogle = async () => {
+    setLoading(true);
+    try {
+      const response = await authApi.googleLoginStart();
+      const authUrl = response?.data?.authUrl;
+      if (!authUrl) {
+        throw new Error("Google login URL was not returned.");
+      }
+      window.location.assign(authUrl);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message || "Google login failed" };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const signup = async ({ email, password, fullName }) => {
     setLoading(true);
     try {
       const response = await authApi.signup({ email, password, fullName });
-      const nextUser = {
-        ...response.data.user,
-        name: response.data.user.fullName || response.data.user.email,
-      };
+      const nextUser = normalizeUser(response.data.user);
       applyAuthState(nextUser, response.data.accessToken);
       return { success: true };
     } catch (error) {
@@ -134,6 +145,7 @@ export const AuthProvider = ({ children }) => {
       initializing,
       accessToken,
       login,
+      loginWithGoogle,
       signup,
       logout,
       refreshSession,
