@@ -7,6 +7,7 @@ import {
   signRefreshToken,
   verifyRefreshToken,
 } from "../lib/token.js";
+import { getFreshGmailAccessContextForUser } from "../processTracking/pt.gmail.js";
 
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -318,6 +319,41 @@ const refreshSession = async (refreshToken, req) => {
     throw err;
   }
 
+  if (session.user?.authProvider === "google") {
+    try {
+      await getFreshGmailAccessContextForUser(session.userId);
+    } catch (error) {
+      const revokedAt = new Date();
+      await prisma.$transaction(async (tx) => {
+        await tx.authSession.updateMany({
+          where: {
+            userId: session.userId,
+            revokedAt: null,
+          },
+          data: { revokedAt },
+        });
+
+        await tx.gmailAccount.updateMany({
+          where: { userId: session.userId },
+          data: {
+            isActive: false,
+            accessTokenEncrypted: null,
+            refreshTokenEncrypted: null,
+            expiresAt: null,
+          },
+        });
+      });
+
+      await writeAudit("refresh_failed_google_expired", session.userId, {
+        reason: error instanceof Error ? error.message : "google_session_invalid",
+      });
+
+      const err = new Error("Google session expired. Please sign in with Google again.");
+      err.statusCode = 401;
+      throw err;
+    }
+  }
+
   await prisma.authSession.update({
     where: { id: session.id },
     data: { revokedAt: new Date() },
@@ -394,23 +430,37 @@ const completeGoogleLogin = async ({ code, state, error }, req) => {
 
     const googleUserInfo = await fetchGoogleUserInfo(accessToken);
     const googleEmail = normalizeEmail(googleUserInfo.email);
+    const googleSub = String(googleUserInfo.id || "").trim();
     if (!googleEmail) {
       throw createHttpError("Google account email is unavailable.", 502);
     }
+    if (!googleSub) {
+      throw createHttpError("Google account subject is unavailable.", 502);
+    }
 
-    const existingUser = await prisma.user.findUnique({
+    const userByGoogleSub = await prisma.user.findUnique({
+      where: { googleSub },
+    });
+    const userByEmail = await prisma.user.findUnique({
       where: { email: googleEmail },
     });
+    if (userByGoogleSub && userByEmail && userByGoogleSub.id !== userByEmail.id) {
+      throw createHttpError(
+        "This Google account is already linked to a different user.",
+        409,
+      );
+    }
+
+    const existingUser = userByGoogleSub || userByEmail;
 
     const user = await prisma.$transaction(async (tx) => {
       const userRecord = existingUser
         ? await tx.user.update({
             where: { id: existingUser.id },
             data: {
+              email: googleEmail,
               authProvider: "google",
-              googleSub: String(
-                googleUserInfo.id || existingUser.googleSub || "",
-              ),
+              googleSub: String(googleSub || existingUser.googleSub || ""),
               fullName: existingUser.fullName || googleUserInfo.name || null,
               isEmailVerified: true,
             },
@@ -425,7 +475,7 @@ const completeGoogleLogin = async ({ code, state, error }, req) => {
                 parallelism: 1,
               }),
               authProvider: "google",
-              googleSub: String(googleUserInfo.id || googleEmail),
+              googleSub: String(googleSub || googleEmail),
               fullName: googleUserInfo.name || null,
               isEmailVerified: true,
             },
