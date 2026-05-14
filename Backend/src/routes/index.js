@@ -5,7 +5,7 @@ import processTrackingRoutes from "../processTracking/index.js";
 import { requireAuth } from "../middleware/auth.middleware.js";
 import { streamUserEvents } from "../events/index.js";
 import apiKeyRoutes from "../apiKeys/apiKeys.routes.js";
-import { mcpRoutes } from "../mcp/index.js"
+import mcpRoutes from "../mcp/index.js";
 
 const router = Router();
 

@@ -14,7 +14,7 @@ const requireApiKeyAuth = async (req, res, next) => {
 
     // Reject when header missing or tocken is not my API format
     if (!rawKey || !rawKey.startsWith("sc_")) {
-      return res.status(401).json({ success: false, error: "Unauthorized" });
+      return res.status(401).json({ success: false, error: "Unauthorizeda" });
     }
 
     const hashedKey = hashApiKey(rawKey);
@@ -30,7 +30,7 @@ const requireApiKeyAuth = async (req, res, next) => {
 
     // Reject if apiKey doesn't exit or has been revoked
     if (!apiKey || apiKey.revoked) {
-      return res.status(401).json({ success: false, error: "Unauthorized" });
+      return res.status(401).json({ success: false, error: "Unauthorizedb" });
     }
 
     // Attach authenticated identity to request for downstream handlers
@@ -51,7 +51,7 @@ const requireApiKeyAuth = async (req, res, next) => {
     return next();
   } catch (error) {
     // Any unexpected error
-    return res.status(401).json({ success: false, error: "Unauthorized" });
+    return res.status(401).json({ success: false, error: "Unauthorizedc" });
   }
 };
 

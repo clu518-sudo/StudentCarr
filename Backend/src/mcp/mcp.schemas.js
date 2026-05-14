@@ -1,4 +1,4 @@
-import { Schema, z } from "zod";
+import { z } from "zod";
 
 const mcpProcessTrackingSchema = z.object({
     message: z.string().trim().min(1, "Message is required"),

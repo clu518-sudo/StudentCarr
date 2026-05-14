@@ -1,13 +1,13 @@
 import { Router } from "express";
-import { requireApiKeyAuth } from "../middleware/apiKeyAuth.middleware";
-import { processTrackingMcp } from "./mcp.controller";
+import { requireApiKeyAuth } from "../middleware/apiKeyAuth.middleware.js";
+import { processTrackingMcp } from "./mcp.controller.js";
 
-const router = Router();
+const mcpRoutes = Router();
 
 // all MCP endpoints use API key auth
-router.use(requireApiKeyAuth);
+mcpRoutes.use(requireApiKeyAuth);
 
 // POST /api/mcp/process-tracking
-router.post("/process-tracking", processTrackingMcp);
+mcpRoutes.post("/process-tracking", processTrackingMcp);
 
-export default router;
+export default mcpRoutes;
