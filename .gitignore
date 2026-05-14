@@ -151,3 +151,7 @@ gmail_key.json
 
 planing/
 
+# Markdown files
+*.md
+!README.md
+
