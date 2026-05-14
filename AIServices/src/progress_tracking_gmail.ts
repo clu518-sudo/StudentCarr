@@ -482,6 +482,22 @@ const toCandidateFallback = (
   };
 };
 
+// Remove tracking links and URL noise from email body text.
+const stripLinksFromText = (value: unknown) => {
+  if (typeof value !== "string" || !value) return value as string;
+
+  return value
+    .replace(/\r\n/g, "\n")
+    .replace(/%%str_to_replace_open_tracking%%/gi, " ")
+    .replace(/\[\s*https?:\/\/[^\]]+\]/gi, " ")
+    .replace(/\bhttps?:\/\/[^\s<>\]]+/gi, " ")
+    .replace(/\bwww\.[^\s<>\]]+/gi, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+};
+
 const toFullMessage = (
   message: gmail_v1.Schema$Message,
   fallback: CandidateMessage,
@@ -523,8 +539,8 @@ const toFullMessage = (
     ccRecipients: parseAddressList(getHeaderValue(headers, "Cc")),
     bccRecipients: parseAddressList(getHeaderValue(headers, "Bcc")),
     rawHeaders,
-    rawBodyText: bodies.text,
-    rawBodyHtml: bodies.html,
+    rawBodyText: stripLinksFromText(bodies.text),
+    rawBodyHtml: stripLinksFromText(bodies.html),
     receivedAt,
     sentAt,
     isUnread: (message.labelIds || []).includes("UNREAD"),
