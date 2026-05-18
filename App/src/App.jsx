@@ -23,6 +23,7 @@ import ResumeBuilderView from "./components/applications/ResumeBuilderView";
 import ApplicationAutomationView from "./components/applications/ApplicationAutomationView";
 import AIInterviewAssistantView from "./components/interview/AIInterviewAssistantView";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import McpSetupView from "./components/mcp/McpSetupView";
 
 function App() {
   return (
@@ -50,6 +51,7 @@ function App() {
                   <Route path="profile" element={<ProfileView />} />
                   <Route path="jobs" element={<JobsView />} />
                   <Route path="progress" element={<ProgressView />} />
+                  <Route path="mcp" element={<McpSetupView />} />
 
                   {/* Skills Management with nested routes */}
                   <Route path="skills" element={<SkillManagementView />} />

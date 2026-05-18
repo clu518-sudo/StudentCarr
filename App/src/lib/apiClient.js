@@ -241,3 +241,27 @@ export const progressTrackingApi = {
       token,
     ),
 };
+
+// API client for the MCP API-key management endpoints.
+// Backend routes are mounted under /api/keys behind requireAuth (JWT),
+// so every call must pass the user's accessToken (same pattern as the other *Api objects in this file).
+export const apiKeysApi = {
+
+  // GET /api/keys
+  // Returns the user's active (non-revoked) keys with a masked preview only.
+  // Shape: { success: true, data: [{ id, label, lastUsedAt, createdAt, maskedKey }] }
+  list: (token) => apiRequest("/keys", {method: "GET"}, token),
+
+  // POST /api/keys
+  // Creates a new key for the current user. The raw `key` is returned ONCE here;
+  // it is never retrievable again (backend only stores the SHA-256 hash).
+  // body: { label?: string }
+  // Shape: { success: true, data: { id, label, createdAt, key } }
+  create:  (body, token) => apiRequest("/keys", {method: "POST"}, token),
+
+  // DELETE /api/keys/:id
+  // Soft-revokes a key (sets revoked=true). Scoped by userId on the backend,
+  // so users can only revoke their own keys.
+  // Shape: { success: true, data: { id, revoked: true } }
+  revoke: (id, token) => apiRequest(`/keys/${id}`, {method:"DELETE"}, token),
+};
