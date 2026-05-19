@@ -5,7 +5,7 @@ export const definition = {
     description: "Send an instruction to StudentCarr which is a carrier building AI assistant. Currently supported message tag: 'getEmails' — syncs the user's Gmail and returns aggregated job-application emails.",
     inputSchema: {
         type: "object",
-        properies: {
+        properties: {
             message: {
                 type: "string",
                 description: "Routing tag understood by StudentCarr's MCP dispatcher. Use 'getEmails' to fetch the latest job-application emails.",

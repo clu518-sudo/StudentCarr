@@ -19,6 +19,7 @@
     "@langchain/core": "^1.1.40",
     "@napi-rs/canvas": "^0.1.97",
     "@prisma/client": "^6.19.2",
+    "archiver": "^8.0.0",
     "argon2": "^0.44.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",

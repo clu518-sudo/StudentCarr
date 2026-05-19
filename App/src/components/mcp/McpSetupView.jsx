@@ -45,6 +45,7 @@ const McpSetupView = () => {
     const [revokingId, setRevokingId] = useState(null);
     const [error, setError] = useState("");
     const [copiedField, setCopiedField] = useState(""); // click "copy" buttom.
+    const [downloadingBundle, setDownloadingBundle] = useState(false);
 
     // Make sure ProgressContext has hydrated so gmailConnected is accurate before we decide what to render.
     useEffect(()=>{
@@ -98,6 +99,53 @@ const McpSetupView = () => {
             setCreating(false);
         }
     }
+
+    // Download a pre-configured Claude Desktop bundle (.mcpb).
+    // The backend zips the MCP server with manifest defaults pointing at this
+    // user's just-created key. Only callable while `newlyCreatedKey` is in
+    // memory — the backend never sees the raw key again.
+    const handleDownloadBundle = async () => {
+        if (!newlyCreatedKey?.key || !accessToken || downloadingBundle) return;
+        setDownloadingBundle(true);
+        setError("");
+        try {
+            // VITE_API_BASE_URL is like "http://localhost:10001/api".
+            // The MCP server's STUDENTCARR_API_URL must be the origin only
+            // (it appends "/api/mcp" itself in apiClient.js), so strip "/api".
+            const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || `${window.location.origin}/api`;
+            const apiOrigin = apiBaseUrl.replace(/\/api\/?$/, "");
+
+            const response = await fetch(`${apiBaseUrl}/keys/bundle`, {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${accessToken}`,
+                },
+                body: JSON.stringify({
+                    apiKey: newlyCreatedKey.key,
+                    apiUrl: apiOrigin,
+                }),
+            });
+         
+            if (!response.ok) {
+                throw new Error(`Bundle download failed (${response.status})`);
+            }
+
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "studentcarr-gmail.mcpb";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+
+        } catch (err) {
+            setError(err.message || "Failed to download bundle");
+        } finally { setDownloadingBundle(false) }
+    };
 
     // Revoke a specific key. We confirm first because revocation immediately
     // breaks any Claude Desktop instance currently using this key.
@@ -271,6 +319,22 @@ const McpSetupView = () => {
                 >
                 {copiedField === "key" ? "Copied" : "Copy"}
                 </button>
+            </div>
+            <div className="mt-3">
+                <button
+                    type="button"
+                    onClick={handleDownloadBundle}
+                    disabled={downloadingBundle}
+                    className="px-3 py-2 bg-indigo-600 text-white rounded text-xs font-medium hover:bg-indigo-700 disabled:opacity-50"
+                >
+                    {downloadingBundle
+                        ? "Building bundle..."
+                        : "Download Claude Desktop bundle (.mcpb)"}
+                </button>
+                <p className="mt-1 text-xs text-emerald-700">
+                    Double-click the downloaded file to install in Claude Desktop.
+                    Your API key and server URL will already be filled in.
+                </p>
             </div>
             {/* Manual dismiss — the panel doesn't auto-hide because that would
                 make it easy to lose the key by accident. */}

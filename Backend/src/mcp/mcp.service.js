@@ -47,7 +47,7 @@ const getEmailsHandler = async (userId) => {
 //                     ── Dispatcher ──
 // To add a new tag: write a handler above, then add it here.
 const MESSAGE_HANDLER = {
-    getEmail: getEmailsHandler,
+    getEmails: getEmailsHandler,
     // futureTag: furtureFunctionHandler
 };
 

@@ -13,7 +13,7 @@ export const callStudentCarr = async (path, body) => {
     try {
         response = await fetch(endpoint, {
             method: "POST",
-            header: {
+            headers: {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${process.env.STUDENTCARR_API_KEY}`,
             },

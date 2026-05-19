@@ -6,8 +6,8 @@ import {
 } from "@modelcontextprotocol/sdk/types.js"; 
 import { toolDefinitions, getHandler } from "./tools/index.js";
 
-const API_KEY = process.env.API_KEY;
-const API_URL = process.env.API_URL;
+const API_KEY = process.env.STUDENTCARR_API_KEY;
+const API_URL = process.env.STUDENTCARR_API_URL;
 
 if (!API_KEY) {
     console.error("[studentcarr-mcp] STUDENTCARR_API_KEY is not set");

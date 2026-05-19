@@ -8,6 +8,6 @@ const mcpRoutes = Router();
 mcpRoutes.use(requireApiKeyAuth);
 
 // POST /api/mcp/process-tracking
-mcpRoutes.post("/", processTrackingMcp);
+mcpRoutes.post("/", mcpDispatcher);
 
 export default mcpRoutes;
