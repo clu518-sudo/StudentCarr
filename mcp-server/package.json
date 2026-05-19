@@ -1,0 +1,21 @@
+{
+  "name": "studentcarr-mcp-server",
+  "version": "0.1.0",
+  "description": "StudentCarr MCP stdio server. Bridges Claude Desktop to a user's Gmail via the StudentCarr API.",
+  "type": "module",
+  "main": "src/index.js",
+  "bin": {
+    "studentcarr-mcp-server": "src/index.js"
+  },
+  "files": ["src"],
+  "engines": {
+    "node": ">=18.17.0"
+  },
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4"
+  },
+  "license": "ISC"
+}

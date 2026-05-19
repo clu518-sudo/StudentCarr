@@ -1,5 +1,5 @@
-import { mcpProcessTrackingSchema, validate } from "./mcp.schemas.js";
-import { runProgressTracking } from "./mcp.service.js";
+import { mcpDispatcherSchema, validate } from "./mcp.schemas.js";
+import { runService } from "./mcp.service.js";
 
 const formatZodError = (error) => {
   if (!error?.issues) return "Invalid request payload";
@@ -8,10 +8,10 @@ const formatZodError = (error) => {
     .join(", ");
 };
 
-const processTrackingMcp = async (req, res, next) => {
+const mcpDispatcher = async (req, res, next) => {
     try {
-        const payload = validate(mcpProcessTrackingSchema, req.body || {});
-        const result = await runProgressTracking(
+        const payload = validate(mcpDispatcherSchema, req.body || {});
+        const result = await runService(
             req.user.id,
             payload.message,
         );
@@ -27,4 +27,4 @@ const processTrackingMcp = async (req, res, next) => {
     } 
 };
 
-export { processTrackingMcp }; 
+export { mcpDispatcher }; 

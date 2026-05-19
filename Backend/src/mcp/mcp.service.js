@@ -5,11 +5,20 @@ import {
   getEmailDetailById,
 } from "../processTracking/pt.service.js";
 
-const runProgressTracking = async (userId, message) => {
+const runService = async (userId, message) => {
     /*
         message: used as tag, indecating which function to run. 
                 recent value(s): getEmails ......
-     */
+    */
+    //  once having 3+ tags. Drop the if-chain in favor of     
+    //    const handlers = {
+    //    getEmails: async (userId) => { /* current body */ },
+    //    // future: anotherTag: async (userId) => {...}
+    //    };
+    //    const handler = handlers[message];
+    //    if (!handler) { const e = new Error(`Unsupported MCP message: ${message}`); e.statusCode = 400; throw e; }
+    //    return handler(userId);
+
 
     // get job hunting related emails
     if (message === "getEmails") {
@@ -42,7 +51,7 @@ const runProgressTracking = async (userId, message) => {
           sync: syncResult.sync,
           emails: emailDetails,
         };
-    };
+    }
 
     // Todo
     // if there more functions in the furture
@@ -52,4 +61,4 @@ const runProgressTracking = async (userId, message) => {
     throw error;
 };
 
-export { runProgressTracking };
+export { runService };

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireApiKeyAuth } from "../middleware/apiKeyAuth.middleware.js";
-import { processTrackingMcp } from "./mcp.controller.js";
+import { mcpDispatcher } from "./mcp.controller.js";
 
 const mcpRoutes = Router();
 
@@ -8,6 +8,6 @@ const mcpRoutes = Router();
 mcpRoutes.use(requireApiKeyAuth);
 
 // POST /api/mcp/process-tracking
-mcpRoutes.post("/process-tracking", processTrackingMcp);
+mcpRoutes.post("/", processTrackingMcp);
 
 export default mcpRoutes;
