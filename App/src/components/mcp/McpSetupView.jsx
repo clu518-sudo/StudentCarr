@@ -136,7 +136,7 @@ const McpSetupView = () => {
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
-            a.download = "studentcarr-gmail.mcpb";
+            a.download = "studentcarr.mcpb";
             document.body.appendChild(a);
             a.click();
             a.remove();

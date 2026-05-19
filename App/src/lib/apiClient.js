@@ -257,7 +257,7 @@ export const apiKeysApi = {
   // it is never retrievable again (backend only stores the SHA-256 hash).
   // body: { label?: string }
   // Shape: { success: true, data: { id, label, createdAt, key } }
-  create:  (body, token) => apiRequest("/keys", {method: "POST"}, token),
+  create:  (body, token) => apiRequest("/keys", {method: "POST", body}, token),
 
   // DELETE /api/keys/:id
   // Soft-revokes a key (sets revoked=true). Scoped by userId on the backend,
