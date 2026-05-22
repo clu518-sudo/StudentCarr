@@ -151,7 +151,9 @@ gmail_key.json
 
 planing/
 
+
 # Markdown files
 *.md
 !README.md
+!MCP_USER_GUIDE.md
 

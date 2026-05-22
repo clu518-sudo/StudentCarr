@@ -1,8 +1,7 @@
 import React from "react";
+import RichTextViewer from "../common/RichTextViewer";
 
-const renderMessageBody = (body) => (
-  <pre className="whitespace-pre-wrap text-sm text-gray-800 font-sans">{body || "-"}</pre>
-);
+const renderMessageBody = (body) => <RichTextViewer html={body} collapsible />
 
 const ProgressEmailDetailPanel = ({ email, loading }) => {
   if (loading) {

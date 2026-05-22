@@ -30,6 +30,9 @@ const formatDraftEmailText = (value) => {
   if (!normalized) {
     return "";
   }
+  if (/<\/?[a-z][\s\S]*>/i.test(normalized)) {
+    return normalized;
+  }
 
   const withStructuralBreaks = normalized
     .replace(/\n{3,}/g, "\n\n")
@@ -115,7 +118,7 @@ const toThreadTimestamp = (email) => {
 };
 
 const toMessageBody = (email) =>
-  email.rawBodyText || email.rawBodyHtml || email.snippet || "";
+  email.rawBodyHtml || email.rawBodyText || email.snippet || "";
 
 const sortEmailsChronologically = (emails) =>
   [...emails].sort((left, right) => {

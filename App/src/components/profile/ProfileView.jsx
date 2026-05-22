@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useProfile } from "../../contexts/ProfileContext";
+import RichTextEditor from "../common/RichTextEditor";
 
 const DOCUMENT_TYPES = [
   "Resume",
@@ -405,15 +406,15 @@ const ProfileView = () => {
                   }
                 />
               </div>
-              <textarea
-                className={`${inputClass} mt-4`}
-                placeholder="Professional summary"
-                rows={4}
-                value={manualProfile.personalInfo.summary || ""}
-                onChange={(event) =>
-                  updatePersonalInfo("summary", event.target.value)
-                }
-              />
+
+              <div className="mt-4">
+                <RichTextEditor
+                  value={manualProfile.personalInfo.summary || ""}
+                  onChange={(html) => updatePersonalInfo("summary", html)}
+                  placeholder="Professional summary"
+                  minRows={4}
+                />
+              </div>
 
               <div className="mt-4 space-y-3">
                 <div className="flex items-center justify-between">
@@ -610,19 +611,13 @@ const ProfileView = () => {
                         }
                       />
                     </div>
-                    <textarea
-                      className={inputClass}
-                      rows={3}
-                      placeholder="Description"
-                      value={item.description}
-                      onChange={(event) =>
-                        updateArrayItem(
-                          "education",
-                          index,
-                          "description",
-                          event.target.value,
-                        )
+                    <RichTextEditor
+                      value={item.description || ""}
+                      onChange={(html) =>
+                        updateArrayItem("education", index, "description", html)
                       }
+                      placeholder="Description"
+                      minRows={3}
                     />
                     <div className="flex items-center justify-between">
                       <label className="text-sm text-gray-700">
@@ -738,19 +733,13 @@ const ProfileView = () => {
                         }
                       />
                     </div>
-                    <textarea
-                      className={inputClass}
-                      rows={3}
-                      placeholder="Description"
-                      value={item.description}
-                      onChange={(event) =>
-                        updateArrayItem(
-                          "workExperience",
-                          index,
-                          "description",
-                          event.target.value,
-                        )
+                    <RichTextEditor
+                      value={item.description || ""}
+                      onChange={(html) =>
+                        updateArrayItem("workExperience", index, "description", html)
                       }
+                      placeholder="Description"
+                      minRows={3}
                     />
                     <input
                       className={inputClass}
@@ -893,19 +882,13 @@ const ProfileView = () => {
                         }
                       />
                     </div>
-                    <textarea
-                      className={inputClass}
-                      rows={3}
-                      placeholder="Description"
-                      value={item.description}
-                      onChange={(event) =>
-                        updateArrayItem(
-                          "projects",
-                          index,
-                          "description",
-                          event.target.value,
-                        )
+                    <RichTextEditor
+                      value={item.description || ""}
+                      onChange={(html) =>
+                        updateArrayItem("projects", index, "description", html)
                       }
+                      placeholder="Description"
+                      minRows={3}
                     />
                     <input
                       className={inputClass}

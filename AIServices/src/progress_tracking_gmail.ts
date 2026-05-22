@@ -220,6 +220,9 @@ const formatDraftEmailText = (value: string) => {
   if (!normalized) {
     return "";
   }
+  if (/<\/?[a-z][\s\S]*>/i.test(normalized)) {
+    return normalized;
+  }
 
   const withStructuralBreaks = normalized
     .replace(/\n{3,}/g, "\n\n")
@@ -706,12 +709,13 @@ const createReplyMime = ({
   inReplyTo?: string;
   referencesHeader?: string[];
 }) => {
-  const normalizedBody = formatDraftEmailText(body);
+  const isHtml = /<\/?[a-z][\s\S]*>/i.test(body);
+  const normalizedBody = isHtml ? body.trim() : formatDraftEmailText(body);
   const headers = [
     `From: ${from}`,
     `To: ${to}`,
     `Subject: ${subject.startsWith("Re:") ? subject : `Re: ${subject}`}`,
-    "Content-Type: text/plain; charset=utf-8",
+    isHtml ? "Content-Type: text/html; charset=utf-8" : "Content-Type: text/plain; charset=utf-8",
     "MIME-Version: 1.0",
   ];
   if (normalizeText(inReplyTo)) {

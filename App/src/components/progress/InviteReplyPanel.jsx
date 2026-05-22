@@ -1,4 +1,5 @@
 import React from "react";
+import RichTextEditor from "../common/RichTextEditor";
 
 const InviteReplyPanel = ({
   visible,
@@ -28,11 +29,10 @@ const InviteReplyPanel = ({
         <p className="text-sm text-gray-600">Generating draft...</p>
       ) : (
         <div className="space-y-4">
-          <textarea
+          <RichTextEditor
             value={draftText}
-            onChange={(event) => onDraftChange(event.target.value)}
-            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
-            rows={9}
+            onChange={onDraftChange}
+            minRows={9}
           />
           <div className="flex items-center justify-between gap-3">
             <button
