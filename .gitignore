@@ -147,6 +147,9 @@ temp/
 # files
 uploads/
 
+# Chroma vector database (bind-mounted into the chroma docker container)
+chroma-data/
+
 gmail_key.json
 
 planing/
