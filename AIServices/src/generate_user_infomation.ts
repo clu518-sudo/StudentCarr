@@ -94,7 +94,7 @@ const certificationItemSchema = z.object({
   credentialUrl: stringOrEmpty,
 });
 
-const manualProfileSchema = z.object({
+export const manualProfileSchema = z.object({
   personalInfo: z.object({
     name: z.string().trim().max(150).optional().default(""),
     headline: stringOrEmpty,
