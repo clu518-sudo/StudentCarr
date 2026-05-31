@@ -1,6 +1,6 @@
 services:
   chroma:
-    image: chromadb/chroma:latest
+    image: chromadb/chroma:1.5.9
     container_name: studentcarr-chroma
     ports:
       - "8000:8000"

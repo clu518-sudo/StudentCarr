@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useProfile } from "../../contexts/ProfileContext";
+import { useProfile, emptyProfile } from "../../contexts/ProfileContext";
 import RichTextEditor from "../common/RichTextEditor";
 
 const DOCUMENT_TYPES = [
@@ -115,6 +115,8 @@ const getParserStatusClass = (status) => {
 
 const ProfileView = () => {
   const [activeMode, setActiveMode] = useState("manual");
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
   const {
     manualProfile,
     setManualProfile,
@@ -289,6 +291,23 @@ const ProfileView = () => {
       await saveManualProfileData(normalizedProfile);
     } catch {
       // Error state is handled by the profile context.
+    }
+  };
+
+  const confirmDeleteAllManual = async () => {
+    setError("");
+    setSuccessMessage("");
+    setDeletingAll(true);
+    try {
+      await saveManualProfileData(emptyProfile, {
+        successMessageText: "All manual entry information deleted.",
+        errorMessageText: "Failed to delete manual entry information",
+      });
+      setShowDeleteAllConfirm(false);
+    } catch {
+      // Error state is handled by the profile context.
+    } finally {
+      setDeletingAll(false);
     }
   };
 
@@ -1133,13 +1152,23 @@ const ProfileView = () => {
             </section>
 
             <div className="pt-4 border-t border-gray-200 flex items-center justify-between gap-3">
-              <button
-                type="submit"
-                className="btn-primary"
-                disabled={savingManual}
-              >
-                {savingManual ? "Saving..." : "Save Profile"}
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={savingManual}
+                >
+                  {savingManual ? "Saving..." : "Save Profile"}
+                </button>
+                <button
+                  type="button"
+                  className={profileDangerButtonClass}
+                  onClick={() => setShowDeleteAllConfirm(true)}
+                  disabled={savingManual || deletingAll}
+                >
+                  Delete All
+                </button>
+              </div>
               {generatingManual ? (
                 <button
                   type="button"
@@ -1290,6 +1319,44 @@ const ProfileView = () => {
           </div>
         )}
       </div>
+
+      {showDeleteAllConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Delete all manual entries?
+            </h3>
+            <p className="text-sm text-gray-600 mb-6">
+              This will permanently remove all manual entry information,
+              including personal info, preferences, education, work experience,
+              projects, skills, and certifications. This action cannot be
+              undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                className={profileActionButtonClass}
+                onClick={() => setShowDeleteAllConfirm(false)}
+                disabled={deletingAll}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={profileDangerButtonClass}
+                onClick={confirmDeleteAllManual}
+                disabled={deletingAll}
+              >
+                {deletingAll ? "Deleting..." : "Yes, Delete All"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
