@@ -16,7 +16,7 @@ const LoginView = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100">
+    <div className="sc-auth sc-dark">
       <div className="max-w-md w-full space-y-8 p-8">
         <div className="card">
           <div className="text-center mb-8">

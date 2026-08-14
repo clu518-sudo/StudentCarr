@@ -1,8 +1,15 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { useProfile } from '../../contexts/ProfileContext';
 
+// Left navigation for the dark app shell. Routes, click handling, and the
+// active-parent logic are preserved from the original sidebar; only the
+// appearance, ordering, and labels are redesigned to match the reference.
 const Sidebar = () => {
   const location = useLocation();
+  const { user } = useAuth();
+  const { manualProfile } = useProfile();
 
   const navigationItems = [
     {
@@ -15,7 +22,7 @@ const Sidebar = () => {
       )
     },
     {
-      name: 'Profile Management',
+      name: 'Profile',
       path: '/profile',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -24,16 +31,7 @@ const Sidebar = () => {
       )
     },
     {
-      name: 'Job Discovery',
-      path: '/jobs',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0V6a2 2 0 012 2v6a2 2 0 01-2 2H8a2 2 0 01-2-2V8a2 2 0 012-2h8z" />
-        </svg>
-      )
-    },
-    {
-      name: 'Skill Management',
+      name: 'Skills',
       path: '/skills',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -46,7 +44,25 @@ const Sidebar = () => {
       ]
     },
     {
-      name: 'Application Management',
+      name: 'Progress',
+      path: '/progress',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      )
+    },
+    {
+      name: 'Jobs',
+      path: '/jobs',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m8 0V6a2 2 0 012 2v6a2 2 0 01-2 2H8a2 2 0 01-2-2V8a2 2 0 012-2h8z" />
+        </svg>
+      )
+    },
+    {
+      name: 'Applications',
       path: '/applications',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -59,16 +75,7 @@ const Sidebar = () => {
       ]
     },
     {
-      name: 'Progress Tracking',
-      path: '/progress',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
-      )
-    },
-    {
-      name: 'AI Interview Assistant',
+      name: 'Interview',
       path: '/interview',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -85,61 +92,82 @@ const Sidebar = () => {
     return location.pathname === item.path;
   };
 
+  // Career readiness derived from how complete the user's profile is. This uses
+  // only existing profile data (no backend logic invented for it).
+  const readiness = useMemo(() => {
+    const profile = manualProfile || {};
+    const checks = [
+      Boolean(profile.personalInfo?.name),
+      Boolean(profile.personalInfo?.headline),
+      Boolean(profile.personalInfo?.summary),
+      (profile.education?.length || 0) > 0,
+      (profile.workExperience?.length || 0) > 0,
+      (profile.projects?.length || 0) > 0,
+      (profile.skills?.length || 0) > 0,
+      (profile.preferences?.preferredRoles?.length || 0) > 0,
+    ];
+    const completed = checks.filter(Boolean).length;
+    return Math.round((completed / checks.length) * 100);
+  }, [manualProfile]);
+
+  const displayName = user?.name || user?.fullName || user?.email || 'Student account';
+  const initials = displayName
+    .split(' ')
+    .map((part) => part.charAt(0))
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
-    <div className="w-64 bg-white shadow-sm border-r border-gray-200 min-h-screen">
-      <div className="p-6">
-        <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">SC</span>
+    <aside className="sc-sidebar">
+      <div className="sc-brand">
+        <div className="sc-logo">SC</div>
+        <span>StudentCarr</span>
+      </div>
+
+      <nav className="sc-nav">
+        {navigationItems.map((item) => (
+          <React.Fragment key={item.name}>
+            <NavLink
+              to={item.path}
+              className={({ isActive }) =>
+                `sc-nav-item${isActive || isActiveParent(item) ? ' is-active' : ''}`
+              }
+            >
+              <span className="sc-nav-icon">{item.icon}</span>
+              <span className="sc-nav-label">{item.name}</span>
+            </NavLink>
+
+            {item.subItems && isActiveParent(item) && (
+              <div className="sc-subnav">
+                {item.subItems.map((subItem) => (
+                  <NavLink
+                    key={subItem.name}
+                    to={subItem.path}
+                    className={({ isActive }) =>
+                      `sc-subnav-item${isActive ? ' is-active' : ''}`
+                    }
+                  >
+                    {subItem.name}
+                  </NavLink>
+                ))}
+              </div>
+            )}
+          </React.Fragment>
+        ))}
+      </nav>
+
+      <div className="sc-account">
+        <div className="sc-avatar">{initials || 'SC'}</div>
+        <div className="sc-account-copy">
+          <strong>{user?.name || user?.fullName || 'Student account'}</strong>
+          <small>Career readiness {readiness}%</small>
+          <div className="sc-account-readiness">
+            <span style={{ width: `${readiness}%` }} />
           </div>
-          <span className="text-xl font-bold text-gray-900">StudentCarr</span>
         </div>
       </div>
-      
-      <nav className="px-4 pb-6">
-        <ul className="space-y-2">
-          {navigationItems.map((item) => (
-            <li key={item.name}>
-              <NavLink
-                to={item.path}
-                className={({ isActive }) =>
-                  `flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                    isActive || isActiveParent(item)
-                      ? 'bg-primary-50 text-primary-700 border-r-2 border-primary-700'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`
-                }
-              >
-                {item.icon}
-                <span>{item.name}</span>
-              </NavLink>
-              
-              {/* Sub-navigation for nested routes */}
-              {item.subItems && (isActiveParent(item)) && (
-                <ul className="ml-8 mt-2 space-y-1">
-                  {item.subItems.map((subItem) => (
-                    <li key={subItem.name}>
-                      <NavLink
-                        to={subItem.path}
-                        className={({ isActive }) =>
-                          `block px-3 py-2 text-sm rounded-md transition-colors duration-200 ${
-                            isActive
-                              ? 'text-primary-700 bg-primary-50 font-medium'
-                              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                          }`
-                        }
-                      >
-                        {subItem.name}
-                      </NavLink>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </li>
-          ))}
-        </ul>
-      </nav>
-    </div>
+    </aside>
   );
 };
 

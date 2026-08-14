@@ -1,0 +1,208 @@
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
+import { getSectionMeta } from "../../lib/navigation";
+
+// Persistent right-side career assistant panel.
+//
+// There is no chatbot backend in the current codebase, so this panel is a
+// self-contained UI that produces a local placeholder reply. The message flow
+// is intentionally funnelled through a single `requestAssistantReply` function
+// and every outgoing turn carries `buildContext()` (the current page + any
+// selected item), so a real backend can be wired in later by replacing only
+// that one function — no other UI changes required.
+
+const QUICK_ACTIONS = [
+  { label: "Improve my resume", prompt: "Help me improve my resume." },
+  {
+    label: "Draft a follow-up",
+    prompt: "Draft a follow-up email for my application.",
+  },
+  {
+    label: "Practice interview",
+    prompt: "Start a practice interview with me.",
+  },
+];
+
+const formatTime = () =>
+  new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+let messageId = 0;
+const nextId = () => {
+  messageId += 1;
+  return messageId;
+};
+
+const CareerChatbot = ({ open = false, onClose = () => {} }) => {
+  const location = useLocation();
+  const sectionMeta = useMemo(
+    () => getSectionMeta(location.pathname),
+    [location.pathname],
+  );
+
+  const [messages, setMessages] = useState(() => [
+    {
+      id: nextId(),
+      role: "assistant",
+      text: "Hi! I'm your career assistant. Ask me about your profile, applications, skills, or interviews — I use the page you're on for context.",
+      time: formatTime(),
+    },
+  ]);
+  const [input, setInput] = useState("");
+  const [isThinking, setIsThinking] = useState(false);
+
+  const messagesRef = useRef(null);
+  const inputRef = useRef(null);
+  const replyTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (messagesRef.current) {
+      messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+    }
+  }, [messages, isThinking]);
+
+  useEffect(
+    () => () => {
+      if (replyTimerRef.current) {
+        window.clearTimeout(replyTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  // The context object that would be sent to a backend alongside each message.
+  const buildContext = () => ({
+    currentSection: sectionMeta.label,
+    path: location.pathname,
+  });
+
+  // Single integration seam for a future AI backend. Today it returns a local
+  // placeholder that acknowledges the page context.
+  const requestAssistantReply = (userText, context) =>
+    new Promise((resolve) => {
+      replyTimerRef.current = window.setTimeout(() => {
+        resolve(
+          `Here's how I'd help with "${userText}" from the ${context.currentSection} page.\n\nConnect an AI backend to turn this into live, personalized guidance — your page context is already included with every message.`,
+        );
+      }, 650);
+    });
+
+  const sendMessage = async (rawText) => {
+    const text = rawText.trim();
+    if (!text || isThinking) {
+      return;
+    }
+
+    const context = buildContext();
+    setMessages((prev) => [
+      ...prev,
+      { id: nextId(), role: "user", text, time: formatTime() },
+    ]);
+    setInput("");
+    setIsThinking(true);
+
+    try {
+      const reply = await requestAssistantReply(text, context);
+      setMessages((prev) => [
+        ...prev,
+        { id: nextId(), role: "assistant", text: reply, time: formatTime() },
+      ]);
+    } finally {
+      setIsThinking(false);
+    }
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    sendMessage(input);
+  };
+
+  const handleQuickAction = (prompt) => {
+    setInput(prompt);
+    inputRef.current?.focus();
+  };
+
+  return (
+    <aside className={`sc-chat${open ? " is-open" : ""}`} aria-label="Career chatbot">
+      <div className="sc-chat-head">
+        <div className="sc-chat-title">
+          <span className="sc-bot-icon" aria-hidden="true">
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+              />
+            </svg>
+          </span>
+          Career Chatbot
+          <button
+            type="button"
+            className="sc-chat-close"
+            onClick={onClose}
+            aria-label="Close assistant"
+          >
+            ✕
+          </button>
+        </div>
+        <p>AI assistant with context from the current page.</p>
+        <span className="sc-chat-context">◉ Context: {sectionMeta.label}</span>
+      </div>
+
+      <div className="sc-messages" ref={messagesRef}>
+        {messages.map((message) => (
+          <div key={message.id} className={`sc-message ${message.role}`}>
+            {message.text}
+            <span className="timestamp">{message.time}</span>
+          </div>
+        ))}
+        {isThinking && (
+          <div className="sc-message assistant typing">Assistant is typing…</div>
+        )}
+      </div>
+
+      <div className="sc-quick-actions">
+        {QUICK_ACTIONS.map((action) => (
+          <button
+            key={action.label}
+            type="button"
+            className="sc-chip"
+            onClick={() => handleQuickAction(action.prompt)}
+          >
+            {action.label}
+          </button>
+        ))}
+      </div>
+
+      <form className="sc-composer" onSubmit={handleSubmit}>
+        <div className="sc-input-wrap">
+          <input
+            ref={inputRef}
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            placeholder="Ask anything about your career..."
+            aria-label="Message the career assistant"
+          />
+          <button
+            type="submit"
+            className="sc-send"
+            disabled={!input.trim() || isThinking}
+            aria-label="Send message"
+          >
+            ➤
+          </button>
+        </div>
+        <div className="sc-context-note">
+          ◉ Assistant uses your profile and dashboard context
+        </div>
+      </form>
+    </aside>
+  );
+};
+
+export default CareerChatbot;

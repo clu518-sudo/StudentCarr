@@ -106,3 +106,918 @@
   height: auto;
   display: inline-block;
 }
+
+/* ==========================================================================
+   StudentCarr dark SaaS shell
+   --------------------------------------------------------------------------
+   Scoped, sc-* prefixed styles that implement the three-column desktop
+   application shell (sidebar | workspace | career chatbot), the redesigned
+   dashboard, and the persistent assistant panel. These are intentionally
+   self-contained so existing light-themed pages keep working unchanged when
+   rendered inside the workspace column.
+   ========================================================================== */
+.sc-shell {
+  --sc-bg: #08111f;
+  --sc-panel: #0d1828;
+  --sc-panel2: #101d2f;
+  --sc-card: #121f32;
+  --sc-border: #24344d;
+  --sc-text: #f5f7fb;
+  --sc-muted: #a8b5ca;
+  --sc-primary: #6f9cff;
+  --sc-lilac: #9b7cff;
+  --sc-green: #68d89b;
+  --sc-yellow: #ffc65c;
+  --sc-red: #ff7c86;
+  --sc-blue: #7da2ff;
+  --sc-sidebar: 236px;
+  --sc-chat: 360px;
+
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: var(--sc-sidebar) minmax(0, 1fr) var(--sc-chat);
+  color: var(--sc-text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', sans-serif;
+  background: radial-gradient(
+      circle at 70% 10%,
+      rgba(111, 156, 255, 0.08),
+      transparent 26%
+    ),
+    linear-gradient(180deg, #07101d 0%, #091423 100%);
+}
+
+/* Sidebar --------------------------------------------------------------- */
+.sc-sidebar {
+  background: rgba(10, 21, 36, 0.94);
+  border-right: 1px solid var(--sc-border);
+  padding: 22px 14px 18px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  position: sticky;
+  top: 0;
+  backdrop-filter: blur(10px);
+}
+.sc-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 10px 26px;
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--sc-text);
+}
+.sc-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: #0b1524;
+  background: linear-gradient(135deg, #7ba6ff, #9c8cff);
+  font-weight: 700;
+  flex-shrink: 0;
+  box-shadow: 0 8px 30px rgba(111, 156, 255, 0.22);
+}
+.sc-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+}
+.sc-nav-item {
+  border: 0;
+  width: 100%;
+  color: #c4cde0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 13px;
+  border-radius: 11px;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.2s, color 0.2s;
+}
+.sc-nav-item:hover {
+  background: #12223a;
+  color: #ffffff;
+}
+.sc-nav-item.is-active {
+  color: #cfe0ff;
+  background: linear-gradient(90deg, #18345f, #1a3155);
+  box-shadow: inset 3px 0 0 var(--sc-primary);
+}
+.sc-nav-icon {
+  width: 22px;
+  height: 22px;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.sc-subnav {
+  margin: 2px 0 4px 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sc-subnav-item {
+  display: block;
+  padding: 7px 12px;
+  font-size: 13px;
+  color: #93a2bd;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: background 0.2s, color 0.2s;
+}
+.sc-subnav-item:hover {
+  color: #dbe6ff;
+  background: #12223a;
+}
+.sc-subnav-item.is-active {
+  color: #cfe0ff;
+  background: #16273f;
+}
+.sc-account {
+  margin-top: auto;
+  border-top: 1px solid var(--sc-border);
+  padding: 16px 8px 0;
+  display: flex;
+  gap: 11px;
+  align-items: center;
+}
+.sc-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #18365e;
+  color: #9cc0ff;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.sc-account-copy strong {
+  display: block;
+  font-size: 14px;
+  color: var(--sc-text);
+}
+.sc-account-copy small {
+  color: var(--sc-muted);
+  font-size: 12px;
+}
+.sc-account-readiness {
+  margin-top: 6px;
+  height: 5px;
+  width: 130px;
+  max-width: 100%;
+  border-radius: 999px;
+  background: #263852;
+  overflow: hidden;
+}
+.sc-account-readiness span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #62d894, #75dca0);
+}
+
+/* Main workspace -------------------------------------------------------- */
+.sc-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+.sc-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--sc-border);
+  background: rgba(10, 21, 36, 0.55);
+  backdrop-filter: blur(8px);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.sc-topbar-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--sc-text);
+}
+.sc-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.sc-workspace {
+  flex: 1;
+  min-width: 0;
+  padding: 26px 28px 34px;
+  overflow: auto;
+}
+
+/* Shared dark controls -------------------------------------------------- */
+.sc-btn {
+  border: 1px solid #334764;
+  color: #cfe0ff;
+  background: #0f1b2d;
+  border-radius: 11px;
+  padding: 9px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: border-color 0.2s, background 0.2s;
+}
+.sc-btn:hover {
+  border-color: #587db2;
+  background: #12243d;
+}
+.sc-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.sc-btn-primary {
+  border: 0;
+  color: #07101c;
+  font-weight: 700;
+  background: linear-gradient(135deg, #7da4ff, #9b8aff);
+}
+.sc-btn-primary:hover {
+  filter: brightness(1.05);
+  background: linear-gradient(135deg, #7da4ff, #9b8aff);
+}
+.sc-icon-btn {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid #334764;
+  color: #cfe0ff;
+  background: #0f1b2d;
+}
+.sc-icon-btn:hover {
+  border-color: #587db2;
+  background: #12243d;
+}
+
+/* Dashboard ------------------------------------------------------------- */
+.sc-page-head {
+  margin-bottom: 20px;
+}
+.sc-page-head h1 {
+  font-size: 32px;
+  margin: 0 0 4px;
+  color: var(--sc-text);
+}
+.sc-subtitle {
+  color: var(--sc-muted);
+  margin: 0;
+}
+.sc-hero {
+  min-height: 190px;
+  border-radius: 16px;
+  padding: 28px 32px;
+  background: radial-gradient(
+      circle at 77% 40%,
+      rgba(255, 255, 255, 0.18),
+      transparent 20%
+    ),
+    linear-gradient(120deg, #5f8cf9, #a378ed);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  overflow: hidden;
+  margin-bottom: 20px;
+  box-shadow: 0 18px 50px rgba(66, 88, 180, 0.17);
+}
+.sc-hero h2 {
+  font-size: 26px;
+  margin: 0 0 12px;
+  color: #ffffff;
+}
+.sc-hero p {
+  max-width: 560px;
+  color: #eef2ff;
+  line-height: 1.6;
+  margin: 0;
+}
+.sc-hero-art {
+  width: 210px;
+  height: 128px;
+  position: relative;
+  opacity: 0.92;
+  flex-shrink: 0;
+}
+.sc-hero-art .sc-target {
+  position: absolute;
+  right: 20px;
+  top: 5px;
+  width: 92px;
+  height: 92px;
+  border: 11px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+}
+.sc-hero-art .sc-target:after {
+  content: '';
+  position: absolute;
+  inset: 18px;
+  border: 8px solid rgba(255, 255, 255, 0.48);
+  border-radius: 50%;
+}
+.sc-hero-art .sc-bars {
+  position: absolute;
+  left: 5px;
+  bottom: 12px;
+  display: flex;
+  align-items: flex-end;
+  gap: 9px;
+}
+.sc-hero-art .sc-bars span {
+  width: 19px;
+  border-radius: 5px 5px 0 0;
+  background: rgba(255, 255, 255, 0.62);
+}
+.sc-hero-art .sc-bars span:nth-child(1) {
+  height: 35px;
+}
+.sc-hero-art .sc-bars span:nth-child(2) {
+  height: 58px;
+}
+.sc-hero-art .sc-bars span:nth-child(3) {
+  height: 82px;
+}
+.sc-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.sc-card {
+  border: 1px solid var(--sc-border);
+  background: linear-gradient(
+    180deg,
+    rgba(18, 31, 50, 0.98),
+    rgba(14, 26, 43, 0.98)
+  );
+  border-radius: 14px;
+  padding: 20px;
+  color: var(--sc-text);
+}
+.sc-metric .sc-metric-label {
+  color: #c2cee1;
+  font-size: 14px;
+}
+.sc-metric .sc-metric-value {
+  font-size: 30px;
+  font-weight: 700;
+  margin: 7px 0 5px;
+}
+.sc-metric small {
+  color: var(--sc-muted);
+}
+.sc-workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.85fr);
+  gap: 16px;
+}
+.sc-card h3 {
+  font-size: 17px;
+  margin: 0 0 14px;
+  color: var(--sc-text);
+}
+.sc-task {
+  display: grid;
+  grid-template-columns: 13px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 13px 6px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(65, 85, 116, 0.5);
+  color: var(--sc-text);
+  cursor: pointer;
+}
+.sc-task:last-child {
+  border-bottom: 0;
+}
+.sc-task.is-selected {
+  padding: 13px 12px;
+  border: 1px solid #567fd0;
+  border-radius: 11px;
+  background: #11203a;
+}
+.sc-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 5px;
+}
+.sc-dot.yellow {
+  background: var(--sc-yellow);
+}
+.sc-dot.blue {
+  background: var(--sc-blue);
+}
+.sc-dot.green {
+  background: var(--sc-green);
+}
+.sc-dot.red {
+  background: var(--sc-red);
+}
+.sc-task-title {
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+.sc-task-meta {
+  color: var(--sc-muted);
+  font-size: 13px;
+}
+.sc-chevron {
+  color: #b8c4d8;
+  font-size: 22px;
+  line-height: 1;
+}
+.sc-detail-copy {
+  color: #c4cee0;
+  line-height: 1.6;
+}
+.sc-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0;
+}
+.sc-progress {
+  flex: 1;
+  height: 10px;
+  background: #263852;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.sc-progress span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #62d894, #75dca0);
+}
+.sc-detail-note {
+  color: var(--sc-muted);
+  line-height: 1.6;
+}
+.sc-full {
+  width: 100%;
+  justify-content: center;
+  margin-top: 14px;
+  padding: 12px;
+}
+
+/* Career chatbot -------------------------------------------------------- */
+.sc-chat {
+  background: rgba(10, 21, 36, 0.94);
+  border-left: 1px solid var(--sc-border);
+  min-height: 100vh;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  backdrop-filter: blur(10px);
+}
+.sc-chat-head {
+  padding: 22px 20px 16px;
+  border-bottom: 1px solid var(--sc-border);
+}
+.sc-chat-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 19px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: var(--sc-text);
+}
+.sc-bot-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: #18345e;
+  color: #a8c3ff;
+  flex-shrink: 0;
+}
+.sc-chat-head p {
+  font-size: 13px;
+  color: var(--sc-muted);
+  margin: 0;
+}
+.sc-chat-context {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #14273f;
+  border: 1px solid #274063;
+  color: #9db7e6;
+  font-size: 12px;
+}
+.sc-messages {
+  padding: 18px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+.sc-message {
+  max-width: 85%;
+  padding: 12px 14px;
+  border-radius: 13px;
+  line-height: 1.5;
+  font-size: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.sc-message.assistant {
+  align-self: flex-start;
+  color: #d5dceb;
+  background: #17263a;
+  border: 1px solid #24354f;
+}
+.sc-message.user {
+  align-self: flex-end;
+  color: #ffffff;
+  background: linear-gradient(135deg, #335db5, #426fd2);
+}
+.sc-message.typing {
+  color: var(--sc-muted);
+  font-style: italic;
+}
+.sc-quick-actions {
+  padding: 0 18px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.sc-chip {
+  border: 1px solid #31445e;
+  border-radius: 999px;
+  padding: 7px 11px;
+  background: #101c2e;
+  color: #cbd5e7;
+  font-size: 13px;
+  transition: border-color 0.2s, background 0.2s;
+}
+.sc-chip:hover {
+  border-color: #587db2;
+  background: #16273f;
+}
+.sc-composer {
+  padding: 14px 18px 18px;
+  border-top: 1px solid var(--sc-border);
+}
+.sc-input-wrap {
+  display: flex;
+  gap: 8px;
+  border: 1px solid #31445d;
+  background: #0c1727;
+  border-radius: 12px;
+  padding: 7px;
+}
+.sc-input-wrap:focus-within {
+  border-color: #587db2;
+}
+.sc-input-wrap input {
+  min-width: 0;
+  flex: 1;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: #ffffff;
+  padding: 5px 7px;
+}
+.sc-input-wrap input::placeholder {
+  color: #6f7f97;
+}
+.sc-send {
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+  border: 0;
+  background: #315dab;
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.sc-send:hover {
+  background: #3b6bc0;
+}
+.sc-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.sc-context-note {
+  color: #8292aa;
+  font-size: 11px;
+  margin: 9px 4px 0;
+}
+
+/* Mobile chat toggle + backdrop (hidden on desktop) --------------------- */
+.sc-chat-toggle {
+  display: none;
+}
+.sc-chat-close {
+  display: none;
+  background: transparent;
+  border: 0;
+  color: var(--sc-muted);
+  font-size: 20px;
+  line-height: 1;
+}
+.sc-chat-backdrop {
+  display: none;
+}
+
+/* Responsive ------------------------------------------------------------ */
+@media (max-width: 1180px) {
+  .sc-shell {
+    --sc-sidebar: 84px;
+    --sc-chat: 320px;
+  }
+  .sc-brand span,
+  .sc-nav-label,
+  .sc-account-copy {
+    display: none;
+  }
+  .sc-brand {
+    justify-content: center;
+    margin-left: 0;
+    margin-right: 0;
+  }
+  .sc-nav-item {
+    justify-content: center;
+    padding: 11px 0;
+  }
+  .sc-nav-item.is-active {
+    box-shadow: inset 0 0 0 1px var(--sc-primary);
+  }
+  .sc-subnav {
+    display: none;
+  }
+  .sc-account {
+    justify-content: center;
+  }
+  .sc-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .sc-shell {
+    grid-template-columns: 84px minmax(0, 1fr);
+  }
+  .sc-chat {
+    position: fixed;
+    width: min(380px, 92vw);
+    right: 0;
+    top: 0;
+    z-index: 40;
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+    box-shadow: -20px 0 50px rgba(0, 0, 0, 0.35);
+  }
+  .sc-chat.is-open {
+    transform: translateX(0);
+  }
+  .sc-chat-close {
+    display: block;
+    margin-left: auto;
+  }
+  .sc-chat-toggle {
+    display: inline-grid;
+  }
+  .sc-chat-backdrop.is-open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(4, 9, 18, 0.55);
+    z-index: 30;
+  }
+  .sc-workspace-grid {
+    grid-template-columns: 1fr;
+  }
+  .sc-hero-art {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .sc-shell {
+    display: block;
+  }
+  .sc-sidebar {
+    min-height: auto;
+    position: static;
+    flex-direction: row;
+    align-items: center;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--sc-border);
+    padding: 10px;
+  }
+  .sc-brand,
+  .sc-account {
+    display: none;
+  }
+  .sc-nav {
+    flex-direction: row;
+  }
+  .sc-nav-item {
+    width: auto;
+    white-space: nowrap;
+  }
+  .sc-nav-label {
+    display: inline;
+  }
+  .sc-workspace {
+    padding: 18px;
+  }
+  .sc-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+  .sc-hero {
+    padding: 22px;
+  }
+  .sc-page-head h1 {
+    font-size: 26px;
+  }
+}
+
+/* ==========================================================================
+   Dark theme alignment for existing pages (shared `.sc-dark` scope)
+   --------------------------------------------------------------------------
+   Existing pages (Profile, Skills, Jobs, Progress, Applications, Interview,
+   MCP setup, and the Login / Signup auth screens) were built with a light
+   Tailwind palette. Rather than rewrite every className, these scoped rules
+   remap the *neutral* palette they share (gray text/backgrounds/borders,
+   `.card`, form controls) to the dark theme. Any container tagged `.sc-dark`
+   (the app-shell workspace and the auth pages) receives the remap.
+
+   Deliberately left untouched so they stay readable and semantic:
+   - tinted status/badge colors (amber/red/emerald/blue/green/purple/indigo)
+   - gradient page banners
+   - already-dark code blocks (gray-800/900)
+   - the rich-text / email "paper" surface (.tiptap-shell)
+   Cards combined with a tinted background (e.g. `card ... bg-amber-50`) are
+   excluded via :not([class*="bg-"]) so those semantic panels keep their light
+   fill and dark tinted text.
+   ========================================================================== */
+
+/* Surfaces ------------------------------------------------------------- */
+.sc-dark .card:not([class*="bg-"]) {
+  background: linear-gradient(
+    180deg,
+    rgba(18, 31, 50, 0.98),
+    rgba(14, 26, 43, 0.98)
+  );
+  border-color: var(--sc-border);
+  color: var(--sc-text);
+}
+.sc-dark .bg-white {
+  background-color: var(--sc-card);
+  border-color: var(--sc-border);
+  color: var(--sc-text);
+}
+
+/* Neutral text --------------------------------------------------------- */
+.sc-dark .text-gray-900 {
+  color: #f5f7fb;
+}
+.sc-dark .text-gray-800 {
+  color: #e7edf7;
+}
+.sc-dark .text-gray-700 {
+  color: #cdd8ea;
+}
+.sc-dark .text-gray-600 {
+  color: #aab7cc;
+}
+.sc-dark .text-gray-500 {
+  color: #9aa8c0;
+}
+.sc-dark .text-gray-400 {
+  color: #7c8aa3;
+}
+
+/* Neutral backgrounds -------------------------------------------------- */
+.sc-dark .bg-gray-50 {
+  background-color: #0f1b2d;
+}
+.sc-dark .bg-gray-100 {
+  background-color: #16263c;
+}
+.sc-dark .bg-gray-200 {
+  background-color: #22344e;
+}
+
+/* Neutral borders ------------------------------------------------------ */
+.sc-dark .border-gray-100 {
+  border-color: #1c2c44;
+}
+.sc-dark .border-gray-200 {
+  border-color: #24344d;
+}
+.sc-dark .border-gray-300 {
+  border-color: #2f425f;
+}
+.sc-dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #24344d;
+}
+
+/* Hover states --------------------------------------------------------- */
+.sc-dark .hover\:bg-gray-50:hover {
+  background-color: #16273f;
+}
+.sc-dark .hover\:bg-gray-100:hover {
+  background-color: #1a2c46;
+}
+.sc-dark .hover\:bg-gray-200:hover {
+  background-color: #22344e;
+}
+.sc-dark .hover\:text-gray-700:hover {
+  color: #cdd8ea;
+}
+.sc-dark .hover\:text-gray-900:hover {
+  color: #f5f7fb;
+}
+.sc-dark .hover\:border-gray-300:hover {
+  border-color: #3a5072;
+}
+
+/* Form controls -------------------------------------------------------- */
+.sc-dark input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']):not([type='color']),
+.sc-dark textarea,
+.sc-dark select {
+  background-color: #0c1727;
+  border-color: #31445d;
+  color: var(--sc-text);
+}
+.sc-dark input::placeholder,
+.sc-dark textarea::placeholder {
+  color: #6f7f97;
+}
+.sc-dark input:not([type='checkbox']):not([type='radio']):focus,
+.sc-dark textarea:focus,
+.sc-dark select:focus {
+  border-color: #587db2;
+}
+
+/* Secondary button (light by default) ---------------------------------- */
+.sc-dark .btn-secondary {
+  background-color: #16263c;
+  color: #cbd5e7;
+}
+.sc-dark .btn-secondary:hover {
+  background-color: #1d3050;
+}
+
+/* Keep the rich-text / email document surface as readable light paper --- */
+.sc-dark .tiptap-shell {
+  color: #1f2937;
+}
+
+/* ==========================================================================
+   Auth pages (Login / Signup) dark theme
+   --------------------------------------------------------------------------
+   The auth screens render outside the app shell, so they carry the shared
+   `.sc-dark` scope (above) plus this container styling to match the theme:
+   the same dark navy background, Inter font, and centered card layout.
+   ========================================================================== */
+.sc-auth {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', sans-serif;
+  color: #f5f7fb;
+  background: radial-gradient(
+      circle at 70% 10%,
+      rgba(111, 156, 255, 0.1),
+      transparent 30%
+    ),
+    linear-gradient(180deg, #07101d 0%, #091423 100%);
+}

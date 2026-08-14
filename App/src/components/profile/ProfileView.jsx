@@ -77,7 +77,7 @@ const inputClass =
 
 const sectionTitleClass = "text-lg font-semibold text-gray-900 mb-4";
 const profileActionButtonClass =
-  "inline-flex items-center justify-center rounded-lg border border-primary-200 bg-primary-50 px-4 py-2 text-sm font-medium text-primary-700 transition-colors duration-200 hover:bg-primary-100";
+  "inline-flex items-center justify-center rounded-lg border border-primary-600 bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-primary-700 hover:border-primary-700";
 const profileDangerButtonClass =
   "inline-flex items-center justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 transition-colors duration-200 hover:bg-red-100";
 const profileDisabledButtonClass =
