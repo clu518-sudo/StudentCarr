@@ -8,11 +8,13 @@ import * as processTrack from "./processTrack.js";
 // import * as myNextTool from "./myNextTool.js";
 
 const tools = [
-    processTrack,
-    // nextTool
-]
+  processTrack,
+  // nextTool
+];
 
 export const toolDefinitions = tools.map((tool) => tool.definition);
 
-const handlerByName = new Map( tools.map((tool) => [tool.definition.name, tool.handler]));
+const handlerByName = new Map(
+  tools.map((tool) => [tool.definition.name, tool.handler]),
+);
 export const getHandler = (name) => handlerByName.get(name);
