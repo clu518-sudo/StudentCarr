@@ -91,26 +91,10 @@ const ProgressView = () => {
           <div>
             <h1 className="text-2xl font-bold mb-2">Progress Tracking</h1>
             <p className="text-indigo-100">
-              Review application status, inspect related emails, sync Gmail updates, and send reviewed invite replies.
+              Explore sample applications and preview related email threads.
             </p>
             <div className="mt-3 text-sm text-indigo-100">
-              {loadingGmailStatus ? (
-                <p>Checking Gmail connection status...</p>
-              ) : gmailConnected ? (
-                <p>
-                  Connected Gmail: {gmailStatus?.email || "Connected"}.
-                  {gmailStatus?.sync?.lastSyncCompletedAt
-                    ? ` Last sync ${new Date(gmailStatus.sync.lastSyncCompletedAt).toLocaleString()}.`
-                    : " No sync has been completed yet."}
-                </p>
-              ) : isGoogleLoginSession ? (
-                <p>
-                  Gmail access is managed by your Google sign-in. Use Sync to fetch
-                  progress emails.
-                </p>
-              ) : (
-                <p>Connect your Gmail account to sync job-hunt emails.</p>
-              )}
+              <p>Demo data is loaded locally. Gmail actions are unavailable in visitor mode.</p>
             </div>
           </div>
 
@@ -119,7 +103,8 @@ const ProgressView = () => {
               type="button"
               className="rounded-md bg-white px-4 py-2 text-sm font-medium text-indigo-700 shadow-sm disabled:cursor-not-allowed disabled:opacity-70"
               onClick={handleStartGmailConnect}
-              disabled={connectingGmail || isGoogleLoginSession}
+              disabled
+              title="This feature is disabled in visitor mode until the backend is deployed."
             >
               {connectingGmail
                 ? "Connecting..."
@@ -133,7 +118,8 @@ const ProgressView = () => {
               type="button"
               className="rounded-md border border-white/50 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-70"
               onClick={handleSyncMailbox}
-              disabled={!gmailConnected || isSyncRunning}
+              disabled
+              title="This feature is disabled in visitor mode until the backend is deployed."
             >
               {isSyncRunning ? "Syncing..." : "Sync Progress Emails"}
             </button>
@@ -179,7 +165,8 @@ const ProgressView = () => {
                 type="button"
                 className="btn-primary disabled:cursor-not-allowed disabled:opacity-70"
                 onClick={handleDeleteSelectedApplications}
-                disabled={!selectedApplicationsCount || deletingApplications}
+                disabled
+                title="This feature is disabled in visitor mode until the backend is deployed."
               >
                 {deletingApplications
                   ? "Deleting..."

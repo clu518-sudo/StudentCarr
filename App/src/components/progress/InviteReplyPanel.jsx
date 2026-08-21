@@ -21,7 +21,7 @@ const InviteReplyPanel = ({
           AI Reply Draft
         </h2>
         <p className="text-sm text-gray-600">
-          Edit the draft before confirming the Gmail send action.
+          Preview and edit the sample draft. Sending is disabled in visitor mode.
         </p>
       </div>
 
@@ -39,9 +39,10 @@ const InviteReplyPanel = ({
               type="button"
               className="btn-primary"
               onClick={onConfirm}
-              disabled={confirming || !draftText.trim()}
+              disabled
+              title="This feature is disabled in visitor mode until the backend is deployed."
             >
-              {confirming ? "Sending..." : "Confirm And Send"}
+              Send disabled in demo
             </button>
             {confirmationMessage ? (
               <p className="text-sm text-green-700">{confirmationMessage}</p>

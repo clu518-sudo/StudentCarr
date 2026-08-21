@@ -345,6 +345,9 @@ const ProfileView = () => {
           Build your profile manually or upload supporting documents for future
           AI parsing.
         </p>
+        <p className="mt-3 text-sm text-primary-100">
+          Visitor Mode · Manual edits stay local. Upload, download, and AI generation are disabled.
+        </p>
       </div>
 
       {error && (
@@ -1185,8 +1188,8 @@ const ProfileView = () => {
                       ? "btn-primary"
                       : profileDisabledButtonClass
                   }
-                  title="Ai generate according upload file"
-                  disabled={!canGenerateManualProfile}
+                  title="This feature is disabled in visitor mode until the backend is deployed."
+                  disabled
                   onClick={() => handleGenerateSection("Manual Entry")}
                 >
                   Generate
@@ -1201,7 +1204,7 @@ const ProfileView = () => {
                 Upload Profile Documents (PDF)
               </h2>
               <p className="text-sm text-gray-600">
-                Upload and manage each document category separately.
+                Sample documents are shown for preview. Document actions require the backend.
               </p>
 
               <input
@@ -1224,14 +1227,15 @@ const ProfileView = () => {
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                       <h3 className="font-semibold text-gray-900">{type}</h3>
                       <label
-                        className={`${profileActionButtonClass} cursor-pointer`}
+                        className={profileDisabledButtonClass}
+                        title="This feature is disabled in visitor mode until the backend is deployed."
                       >
                         {uploadingByType[type] ? "Uploading..." : "Upload"}
                         <input
                           type="file"
                           accept="application/pdf,.pdf"
                           className="hidden"
-                          disabled={Boolean(uploadingByType[type])}
+                          disabled
                           onChange={(event) => {
                             const file = event.target.files?.[0];
                             uploadDocumentForType(type, file);
@@ -1291,8 +1295,9 @@ const ProfileView = () => {
                             <div className="flex items-center gap-2">
                               <button
                                 type="button"
-                                className={profileActionButtonClass}
-                                disabled={downloadingDocumentId === doc.id}
+                                className={profileDisabledButtonClass}
+                                disabled
+                                title="This feature is disabled in visitor mode until the backend is deployed."
                                 onClick={() => downloadDocument(doc)}
                               >
                                 {downloadingDocumentId === doc.id
@@ -1301,7 +1306,9 @@ const ProfileView = () => {
                               </button>
                               <button
                                 type="button"
-                                className={profileDangerButtonClass}
+                                className={profileDisabledButtonClass}
+                                disabled
+                                title="This feature is disabled in visitor mode until the backend is deployed."
                                 onClick={() => deleteDocument(doc.id)}
                               >
                                 Delete

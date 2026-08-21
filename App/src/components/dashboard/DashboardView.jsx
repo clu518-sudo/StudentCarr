@@ -31,7 +31,7 @@ const DashboardView = () => {
     {
       label: 'Applications',
       value: applicationsCount,
-      hint: gmailConnected ? 'Tracked from Gmail' : 'Connect Gmail to track',
+      hint: 'Sample visitor data',
     },
     {
       label: 'Job matches',
@@ -120,7 +120,7 @@ const DashboardView = () => {
           className="sc-btn"
           onClick={handleSyncMailbox}
           disabled={!gmailConnected || isSyncRunning}
-          title={gmailConnected ? 'Sync progress from Gmail' : 'Connect Gmail in Progress to enable syncing'}
+          title="This feature is disabled in visitor mode until the backend is deployed."
         >
           {isSyncRunning ? '↻ Syncing…' : '↻ Sync progress'}
         </button>
@@ -192,8 +192,8 @@ const DashboardView = () => {
             <strong>{selectedAction.progress}%</strong>
           </div>
           <p className="sc-detail-note">
-            The assistant can draft and explain, but actions like sending still
-            happen after your confirmation.
+            This visitor preview uses local demo data. Sending and other backend
+            actions are disabled.
           </p>
           <button
             type="button"

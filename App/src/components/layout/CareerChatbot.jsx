@@ -23,9 +23,6 @@ const QUICK_ACTIONS = [
   },
 ];
 
-const formatTime = () =>
-  new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-
 let messageId = 0;
 const nextId = () => {
   messageId += 1;
@@ -44,7 +41,6 @@ const CareerChatbot = ({ open = false, onClose = () => {} }) => {
       id: nextId(),
       role: "assistant",
       text: "Hi! I'm your career assistant. Ask me about your profile, applications, skills, or interviews — I use the page you're on for context.",
-      time: formatTime(),
     },
   ]);
   const [input, setInput] = useState("");
@@ -95,7 +91,7 @@ const CareerChatbot = ({ open = false, onClose = () => {} }) => {
     const context = buildContext();
     setMessages((prev) => [
       ...prev,
-      { id: nextId(), role: "user", text, time: formatTime() },
+      { id: nextId(), role: "user", text },
     ]);
     setInput("");
     setIsThinking(true);
@@ -104,7 +100,7 @@ const CareerChatbot = ({ open = false, onClose = () => {} }) => {
       const reply = await requestAssistantReply(text, context);
       setMessages((prev) => [
         ...prev,
-        { id: nextId(), role: "assistant", text: reply, time: formatTime() },
+        { id: nextId(), role: "assistant", text: reply },
       ]);
     } finally {
       setIsThinking(false);
@@ -158,7 +154,6 @@ const CareerChatbot = ({ open = false, onClose = () => {} }) => {
         {messages.map((message) => (
           <div key={message.id} className={`sc-message ${message.role}`}>
             {message.text}
-            <span className="timestamp">{message.time}</span>
           </div>
         ))}
         {isThinking && (

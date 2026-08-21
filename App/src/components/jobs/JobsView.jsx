@@ -25,7 +25,7 @@ const JobsView = () => {
           This is a placeholder for the Job Discovery feature.
         </p>
 
-        <button className="btn-primary">
+        <button className="btn-primary" disabled title="This feature is disabled in visitor mode until the backend is deployed.">
           Coming Soon
         </button>
       </div>

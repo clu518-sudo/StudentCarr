@@ -8,7 +8,7 @@ import { useProfile } from '../../contexts/ProfileContext';
 // appearance, ordering, and labels are redesigned to match the reference.
 const Sidebar = () => {
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, isVisitor } = useAuth();
   const { manualProfile } = useProfile();
 
   const navigationItems = [
@@ -161,7 +161,7 @@ const Sidebar = () => {
         <div className="sc-avatar">{initials || 'SC'}</div>
         <div className="sc-account-copy">
           <strong>{user?.name || user?.fullName || 'Student account'}</strong>
-          <small>Career readiness {readiness}%</small>
+          <small>{isVisitor ? 'Demo Preview' : `Career readiness ${readiness}%`}</small>
           <div className="sc-account-readiness">
             <span style={{ width: `${readiness}%` }} />
           </div>

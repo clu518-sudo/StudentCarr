@@ -49,7 +49,7 @@ const ApplicationAutomationView = () => {
           <Link to="/applications" className="btn-secondary">
             Back to Applications
           </Link>
-          <button className="btn-primary">
+          <button className="btn-primary" disabled title="This feature is disabled in visitor mode until the backend is deployed.">
             Setup Automation (Coming Soon)
           </button>
         </div>

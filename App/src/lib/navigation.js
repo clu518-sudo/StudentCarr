@@ -34,10 +34,6 @@ export const SECTION_META = {
     label: "Interview",
     subtitle: "Prepare for interviews with contextual AI support.",
   },
-  mcp: {
-    label: "Claude Desktop",
-    subtitle: "Connect StudentCarr to Claude Desktop via MCP.",
-  },
 };
 
 const DEFAULT_META = {

@@ -1,13 +1,12 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { getSectionMeta } from '../../lib/navigation';
 
-// Workspace top bar for the dark app shell. Preserves the original entry point
-// to the MCP / Claude Desktop setup page, the user identity chip, and logout.
+// Workspace top bar for the dark app shell.
 // Adds a chat toggle used to open the assistant drawer on smaller screens.
 const Header = ({ onToggleChat = () => {} }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, isVisitor } = useAuth();
   const location = useLocation();
   const sectionMeta = getSectionMeta(location.pathname);
 
@@ -20,15 +19,11 @@ const Header = ({ onToggleChat = () => {} }) => {
       <div className="sc-topbar-title">{sectionMeta.label}</div>
 
       <div className="sc-topbar-actions">
-        {/* Top-bar entry to the MCP / Claude Desktop setup page. Visible to all
-            authenticated users — the destination page itself enforces the
-            "Gmail must be connected first" gate. */}
-        <Link to="/mcp" className="sc-btn">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-          <span>Connect to Claude Desktop</span>
-        </Link>
+        {isVisitor ? (
+          <span className="rounded-full border border-indigo-400/40 bg-indigo-500/15 px-3 py-1 text-xs font-semibold text-indigo-200">
+            Visitor Mode
+          </span>
+        ) : null}
 
         {/* User identity chip */}
         <div className="flex items-center" style={{ gap: '10px' }}>

@@ -9,7 +9,6 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { ProfileProvider } from "./contexts/ProfileContext";
 import { ProgressProvider } from "./contexts/ProgressContext";
 import LoginView from "./components/auth/LoginView";
-import SignupView from "./components/auth/SignupView";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import DashboardView from "./components/dashboard/DashboardView";
 import ProfileView from "./components/profile/ProfileView";
@@ -23,7 +22,6 @@ import ResumeBuilderView from "./components/applications/ResumeBuilderView";
 import ApplicationAutomationView from "./components/applications/ApplicationAutomationView";
 import AIInterviewAssistantView from "./components/interview/AIInterviewAssistantView";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
-import McpSetupView from "./components/mcp/McpSetupView";
 
 function App() {
   return (
@@ -35,7 +33,7 @@ function App() {
               <Routes>
                 {/* Public Routes */}
                 <Route path="/login" element={<LoginView />} />
-                <Route path="/signup" element={<SignupView />} />
+                <Route path="/signup" element={<Navigate to="/login" replace />} />
 
                 {/* Protected Routes */}
                 <Route
@@ -51,7 +49,6 @@ function App() {
                   <Route path="profile" element={<ProfileView />} />
                   <Route path="jobs" element={<JobsView />} />
                   <Route path="progress" element={<ProgressView />} />
-                  <Route path="mcp" element={<McpSetupView />} />
 
                   {/* Skills Management with nested routes */}
                   <Route path="skills" element={<SkillManagementView />} />

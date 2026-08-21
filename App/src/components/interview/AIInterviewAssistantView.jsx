@@ -25,7 +25,7 @@ const AIInterviewAssistantView = () => {
           This is a placeholder for the AI Interview Assistant feature.
         </p>
 
-        <button className="btn-primary">
+        <button className="btn-primary" disabled title="This feature is disabled in visitor mode until the backend is deployed.">
           Coming Soon
         </button>
       </div>
