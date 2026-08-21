@@ -17,7 +17,7 @@ export const buildServer = () => {
     tools: toolDefinitions,
   }));
 
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     const handler = getHandler(request.params.name);
     if (!handler) {
       return {
@@ -27,7 +27,10 @@ export const buildServer = () => {
         ],
       };
     }
-    return handler(request.params.arguments);
+    // Forwarded, not verified here — mcp-server has zero business logic.
+    // Backend's requireMcpTokenAuth is the actual verification boundary.
+    const authHeader = extra?.requestInfo?.headers?.authorization;
+    return handler(request.params.arguments, { authHeader });
   });
 
   return server;

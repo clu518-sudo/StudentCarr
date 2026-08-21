@@ -54,6 +54,9 @@ const env = {
     "http://localhost:10001/api/auth/google/callback",
   progressTrackingServiceBaseUrl:
     process.env.PROGRESS_TRACKING_SERVICE_BASE_URL || "http://127.0.0.1:10002",
+  mcpTokenSecret:
+    process.env.MCP_TOKEN_SECRET || "dev_mcp_token_secret_change_me",
+  mcpTokenTtl: process.env.MCP_TOKEN_TTL || "2m",
 };
 
 const isProduction = env.nodeEnv === "production";

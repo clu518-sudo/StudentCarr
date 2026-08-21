@@ -1,13 +1,13 @@
 import { Router } from "express";
-import { requireApiKeyAuth } from "../middleware/apiKeyAuth.middleware.js";
+import { requireMcpTokenAuth } from "../middleware/mcpTokenAuth.middleware.js";
 import { mcpDispatcher } from "./mcp.controller.js";
 
 const mcpRoutes = Router();
 
-// all MCP endpoints use API key auth
-mcpRoutes.use(requireApiKeyAuth);
+// all MCP endpoints use the short-lived scoped MCP token, not the sc_ API key
+mcpRoutes.use(requireMcpTokenAuth);
 
-// POST /api/mcp/process-tracking
+// POST /api/mcp
 mcpRoutes.post("/", mcpDispatcher);
 
 export default mcpRoutes;
