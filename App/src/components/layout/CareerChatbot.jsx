@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useAuth } from "../../contexts/AuthContext";
 import { chatApi } from "../../lib/apiClient";
 
@@ -163,7 +165,9 @@ const CareerChatbot = ({
       <div className="sc-messages" ref={messagesRef}>
         {messages.map((message) => (
           <div key={message.id} className={`sc-message ${message.role}`}>
-            {message.text}
+            <div className="sc-md">
+              <Markdown remarkPlugins={[remarkGfm]}>{message.text}</Markdown>
+            </div>
           </div>
         ))}
         {isThinking && (

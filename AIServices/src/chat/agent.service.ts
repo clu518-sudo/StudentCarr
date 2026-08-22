@@ -1,14 +1,11 @@
 import { ChatOpenAI } from "@langchain/openai";
-import { createReactAgent } from "@langchain/langgraph/prebuilt";
+import { createAgent } from "langchain";
 import { HumanMessage, AIMessage } from "@langchain/core/messages";
+import { z } from "zod";
 
-const OPENAI_MODEL =
-  process.env.OPENAI_MODEL || process.env.MODEL || "gpt-4.1-mini";
-const OPENAI_API_KEY =
-  process.env.OPENAI_API_KEY || process.env.DASHSCOPE_API_KEY;
-const OPENAI_BASE_URL = process.env.OPENAI_BASE_URL;
 const OPENAI_TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 45000);
 const OPENAI_MAX_RETRIES = Number(process.env.OPENAI_MAX_RETRIES || 2);
+const DEFAULT_MODEL = "gpt-4.1-mini";
 
 const SYSTEM_PROMPT =
   "You are the StudentCarr career assistant. StudentCarr helps students " +
@@ -24,41 +21,51 @@ class ServiceError extends Error {
   }
 }
 
-const buildModel = () => {
-  if (!OPENAI_API_KEY) {
-    throw new ServiceError(
-      "OPENAI_API_KEY (or DASHSCOPE_API_KEY) is required for chat",
-      500,
-    );
-  }
-  return new ChatOpenAI({
-    apiKey: OPENAI_API_KEY,
-    model: OPENAI_MODEL,
+// LLM credentials come only from the user's saved Settings-panel entry,
+// forwarded per request by Backend (getDecryptedLlmKey) — never from env.
+const llmSettingsSchema = z.object({
+  apiKey: z.string().trim().min(1),
+  model: z.string().trim().min(1).optional(),
+  baseUrl: z.string().trim().min(1).optional(),
+});
+type LlmSettings = z.infer<typeof llmSettingsSchema>;
+
+const buildModel = (llmSettings: LlmSettings) =>
+  new ChatOpenAI({
+    apiKey: llmSettings.apiKey,
+    model: llmSettings.model || DEFAULT_MODEL,
     temperature: 0.3,
     timeout: OPENAI_TIMEOUT_MS,
     maxRetries: OPENAI_MAX_RETRIES,
-    configuration: OPENAI_BASE_URL ? { baseURL: OPENAI_BASE_URL } : undefined,
+    configuration: llmSettings.baseUrl
+      ? { baseURL: llmSettings.baseUrl }
+      : undefined,
   });
-};
 
-let cachedAgent: ReturnType<typeof createReactAgent> | null = null;
-const getAgent = () => {
-  if (!cachedAgent) {
-    cachedAgent = createReactAgent({
-      llm: buildModel(),
-      tools: [],
-      prompt: SYSTEM_PROMPT,
-    });
-  }
-  return cachedAgent;
-};
+// Rebuilt per turn (not cached) since credentials vary per user/request.
+const buildAgent = (llmSettings: LlmSettings) =>
+  createAgent({
+    model: buildModel(llmSettings),
+    tools: [],
+    systemPrompt: SYSTEM_PROMPT,
+  });
 
 export const runChatTurn = async ({
   message,
+  llmSettings,
 }: {
   message: string;
+  llmSettings: unknown;
 }): Promise<{ reply: string }> => {
-  const agent = getAgent();
+  const parsedSettings = llmSettingsSchema.safeParse(llmSettings);
+  if (!parsedSettings.success) {
+    throw new ServiceError(
+      "No LLM configured for this account. Add one in Settings before chatting.",
+      400,
+    );
+  }
+
+  const agent = buildAgent(parsedSettings.data);
   const result = await agent.invoke({
     messages: [new HumanMessage(message)],
   });

@@ -133,6 +133,7 @@
   --sc-sidebar: 236px;
   --sc-chat: 360px;
   --sc-chat-collapsed: 64px;
+  --sc-workspace-collapsed: 64px;
 
   min-height: 100vh;
   display: grid;
@@ -150,6 +151,9 @@
 }
 .sc-shell.chat-collapsed {
   --sc-chat: var(--sc-chat-collapsed);
+}
+.sc-shell.workspace-collapsed {
+  grid-template-columns: var(--sc-sidebar) var(--sc-workspace-collapsed) minmax(0, 1fr);
 }
 
 /* Sidebar --------------------------------------------------------------- */
@@ -295,6 +299,7 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  position: relative;
 }
 .sc-topbar {
   display: flex;
@@ -324,6 +329,42 @@
   min-width: 0;
   padding: 26px 28px 34px;
   overflow: auto;
+}
+
+/* Collapsed workspace rail (desktop "fold to the side") ----------------- */
+.sc-workspace-fold {
+  position: absolute;
+  top: 22px;
+  right: -14px;
+  z-index: 6;
+  background: #0d1828;
+  border: 1px solid #31445e;
+  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  color: var(--sc-muted);
+  font-size: 14px;
+  line-height: 1;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+.sc-workspace-fold:hover {
+  border-color: #587db2;
+  color: #ffffff;
+  background: #16273f;
+}
+.sc-shell.workspace-collapsed .sc-topbar,
+.sc-shell.workspace-collapsed .sc-workspace {
+  display: none;
+}
+
+/* While the workspace is folded, the chatbot owns the freed space, so its
+   own fold toggle is disabled — folding both at once isn't a valid state. */
+.sc-shell.workspace-collapsed .sc-chat-fold {
+  opacity: 0.35;
+  pointer-events: none;
+  cursor: not-allowed;
 }
 
 /* Shared dark controls -------------------------------------------------- */
@@ -664,11 +705,12 @@
   flex: 1;
 }
 .sc-message {
-  max-width: 85%;
-  padding: 12px 14px;
+  max-width: 90%;
+  padding: 10px 10px;
   border-radius: 13px;
-  line-height: 1.5;
-  font-size: 14px;
+  line-height: 0.85;
+  font-size: 13px;
+  font-family: 'Arial', Times, serif;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -686,6 +728,66 @@
 .sc-message.typing {
   color: var(--sc-muted);
   font-style: italic;
+}
+
+/* Markdown content rendered inside a chat bubble ------------------------ */
+.sc-md p {
+  margin: 0 0 6px;
+}
+.sc-md ul,
+.sc-md ol {
+  margin: 0 0 6px;
+  padding-left: 18px;
+}
+.sc-md li {
+  margin-bottom: 2px;
+}
+.sc-md p:last-child,
+.sc-md ul:last-child,
+.sc-md ol:last-child,
+.sc-md pre:last-child,
+.sc-md blockquote:last-child {
+  margin-bottom: 0;
+}
+.sc-md li:last-child {
+  margin-bottom: 0;
+}
+.sc-md strong {
+  font-weight: 700;
+}
+.sc-md a {
+  color: var(--sc-primary);
+  text-decoration: underline;
+}
+.sc-md code {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 11.5px;
+  line-height: 1;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1 4px;
+  border-radius: 4px;
+}
+.sc-md pre {
+  margin: 0 0 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.28);
+  overflow-x: auto;
+}
+.sc-md pre code {
+  background: none;
+  padding: 0;
+}
+.sc-md blockquote {
+  margin: 0 0 6px;
+  padding-left: 10px;
+  border-left: 2px solid #3a4d6c;
+  color: var(--sc-muted);
+}
+.sc-md hr {
+  border: none;
+  border-top: 1px solid #2a3c58;
+  margin: 10px 0;
 }
 .sc-quick-actions {
   padding: 0 18px 14px;
@@ -848,6 +950,9 @@
     display: inline-grid;
   }
   .sc-chat-fold {
+    display: none;
+  }
+  .sc-workspace-fold {
     display: none;
   }
   .sc-chat.is-collapsed .sc-chat-head {

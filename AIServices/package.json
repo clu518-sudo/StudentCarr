@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "langchain": "~1.4.6",
     "@langchain/community": "^1.1.29",
     "@langchain/core": "^1.1.48",
     "@langchain/langgraph": "^1.0.0",

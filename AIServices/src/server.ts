@@ -15,6 +15,8 @@ import {
   syncProgressTrackingMailbox,
 } from "./progress_tracking_gmail.js";
 
+import { runChatTurn, ServiceError } from "./chat/agent.service.js"
+
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = Number(process.env.LANGGRAPH_PORT || 10002);
 
@@ -46,6 +48,8 @@ const writeJson = (
   res.end(JSON.stringify(payload));
 };
 
+
+// Handlers
 const handleProfileGeneration = async (
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -172,6 +176,35 @@ const handleSendReply = async (
   }
 };
 
+const handleChatTurn = async (
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+) => {
+  try {
+    const payload = (await parseRequestBody(req)) as {
+      message?: unknown;
+      llmSettings?: unknown;
+    };
+    if (typeof payload?.message !== "string" || !payload.message.trim()) {
+      writeJson(res, 400, { success: false, error: "message is required" });
+      return;
+    }
+
+    const result = await runChatTurn({
+      message: payload.message,
+      llmSettings: payload.llmSettings,
+    });
+    writeJson(res, 200, { success: true, data: result });
+  } catch (error) {
+    const statusCode = error instanceof ServiceError ? error.statusCode : 500;
+    writeJson(res, statusCode, {
+      success: false,
+      error: error instanceof Error ? error.message : "Chat turn failed",
+    });
+  }
+};
+
+// start the AI services here 
 export const startAiServer = (port = DEFAULT_PORT, host = DEFAULT_HOST) => {
   const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && req.url === "/health") {
@@ -198,6 +231,12 @@ export const startAiServer = (port = DEFAULT_PORT, host = DEFAULT_HOST) => {
       await handleSendReply(req, res);
       return;
     }
+
+    if (req.method === "POST" && req.url === "/chat/turn") {
+      await handleChatTurn(req, res);
+      return;
+    }
+
 
     writeJson(res, 404, { success: false, error: "Not found" });
   });
