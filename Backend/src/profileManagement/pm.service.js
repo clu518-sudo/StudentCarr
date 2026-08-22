@@ -2,6 +2,7 @@ import prisma from "../lib/prisma.js";
 import { removeFileSafe } from "./pm.storage.js";
 import { enqueueDocumentParsing } from "../documentParsing/index.js";
 import { DOCUMENT_PARSER_STATUS } from "../documentParsing/constants.js";
+import { getDecryptedLlmKey } from "../llmSettings/llmSettings.service.js";
 
 const PROFILE_GENERATION_SERVICE_URL =
   process.env.PROFILE_GENERATION_SERVICE_URL ||
@@ -529,6 +530,7 @@ const requestGeneratedManualProfile = async (
   currentManualProfile,
   documents,
   signal,
+  llmSettings,
 ) => {
   let response;
   try {
@@ -540,6 +542,7 @@ const requestGeneratedManualProfile = async (
       body: JSON.stringify({
         currentManualProfile,
         documents,
+        llmSettings,
       }),
       signal,
     });
@@ -617,10 +620,20 @@ const generateManualProfileForUserDummy = async (
     onProgress("Extracting profile details from parsed documents...");
   }
 
+  const userLlmKey = await getDecryptedLlmKey({ userId });
+  const llmSettings = userLlmKey
+    ? {
+        apiKey: userLlmKey.apiKey,
+        model: userLlmKey.model || undefined,
+        baseUrl: userLlmKey.baseUrl || undefined,
+      }
+    : undefined;
+
   const generatedManualProfile = await requestGeneratedManualProfile(
     current.manualProfile,
     sourceDocuments,
     signal,
+    llmSettings,
   );
 
   if (onProgress) {

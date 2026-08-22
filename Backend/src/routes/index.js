@@ -6,6 +6,8 @@ import { requireAuth } from "../middleware/auth.middleware.js";
 import { streamUserEvents } from "../events/index.js";
 import apiKeyRoutes from "../apiKeys/apiKeys.routes.js";
 import mcpRoutes from "../mcp/index.js";
+import chatRoutes from "../chat/index.js"
+import llmSettingsRoutes from "../llmSettings/index.js";
 
 const router = Router();
 
@@ -15,5 +17,7 @@ router.use("/profile-management", profileManagementRoutes);
 router.use("/process-tracking", processTrackingRoutes);
 router.use("/keys", requireAuth, apiKeyRoutes);
 router.use("/mcp", mcpRoutes);
+router.use("/llm-settings", requireAuth, llmSettingsRoutes);
+router.use("/chat", requireAuth, chatRoutes);
 
 export default router;

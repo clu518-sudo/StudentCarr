@@ -132,10 +132,12 @@
   --sc-blue: #7da2ff;
   --sc-sidebar: 236px;
   --sc-chat: 360px;
+  --sc-chat-collapsed: 64px;
 
   min-height: 100vh;
   display: grid;
   grid-template-columns: var(--sc-sidebar) minmax(0, 1fr) var(--sc-chat);
+  transition: grid-template-columns 0.2s ease;
   color: var(--sc-text);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     'Segoe UI', sans-serif;
@@ -145,6 +147,9 @@
       transparent 26%
     ),
     linear-gradient(180deg, #07101d 0%, #091423 100%);
+}
+.sc-shell.chat-collapsed {
+  --sc-chat: var(--sc-chat-collapsed);
 }
 
 /* Sidebar --------------------------------------------------------------- */
@@ -591,6 +596,7 @@
   display: flex;
   flex-direction: column;
   backdrop-filter: blur(10px);
+  overflow: hidden;
 }
 .sc-chat-head {
   padding: 22px 20px 16px;
@@ -604,6 +610,16 @@
   font-weight: 700;
   margin-bottom: 6px;
   color: var(--sc-text);
+}
+.sc-chat-title-label {
+  flex: 1;
+  min-width: 0;
+}
+.sc-chat-title-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
 }
 .sc-bot-icon {
   width: 36px;
@@ -620,17 +636,24 @@
   color: var(--sc-muted);
   margin: 0;
 }
-.sc-chat-context {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 10px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: #14273f;
-  border: 1px solid #274063;
-  color: #9db7e6;
-  font-size: 12px;
+.sc-chat-fold {
+  background: transparent;
+  border: 1px solid #31445e;
+  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  color: var(--sc-muted);
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+.sc-chat-fold:hover {
+  border-color: #587db2;
+  color: #ffffff;
+  background: #16273f;
 }
 .sc-messages {
   padding: 18px;
@@ -728,10 +751,26 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
-.sc-context-note {
-  color: #8292aa;
-  font-size: 11px;
-  margin: 9px 4px 0;
+
+/* Collapsed chat rail (desktop "fold to the side") ---------------------- */
+.sc-chat.is-collapsed .sc-chat-head {
+  padding: 20px 0;
+  border-bottom: 0;
+}
+.sc-chat.is-collapsed .sc-chat-title {
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 0;
+}
+.sc-chat.is-collapsed .sc-chat-title-actions {
+  margin-left: 0;
+}
+.sc-chat.is-collapsed .sc-chat-title-label,
+.sc-chat.is-collapsed .sc-chat-head p,
+.sc-chat.is-collapsed .sc-messages,
+.sc-chat.is-collapsed .sc-quick-actions,
+.sc-chat.is-collapsed .sc-composer {
+  display: none;
 }
 
 /* Mobile chat toggle + backdrop (hidden on desktop) --------------------- */
@@ -807,6 +846,32 @@
   }
   .sc-chat-toggle {
     display: inline-grid;
+  }
+  .sc-chat-fold {
+    display: none;
+  }
+  .sc-chat.is-collapsed .sc-chat-head {
+    padding: 22px 20px 16px;
+    border-bottom: 1px solid var(--sc-border);
+  }
+  .sc-chat.is-collapsed .sc-chat-title {
+    flex-direction: row;
+    margin-bottom: 6px;
+  }
+  .sc-chat.is-collapsed .sc-chat-title-actions {
+    margin-left: auto;
+  }
+  .sc-chat.is-collapsed .sc-chat-title-label,
+  .sc-chat.is-collapsed .sc-chat-head p,
+  .sc-chat.is-collapsed .sc-quick-actions,
+  .sc-chat.is-collapsed .sc-composer {
+    display: block;
+  }
+  .sc-chat.is-collapsed .sc-messages {
+    display: flex;
+  }
+  .sc-chat.is-collapsed .sc-quick-actions {
+    display: flex;
   }
   .sc-chat-backdrop.is-open {
     display: block;

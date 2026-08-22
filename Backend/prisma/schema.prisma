@@ -23,6 +23,24 @@ model ApiKey {
   createdAt   DateTime @default(now())
 }
 
+model UserLlmKey {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  label        String   @default("Untitled")
+  provider     String   @default("openai")
+  model        String?
+  baseUrl      String?  @map("base_url")
+  encryptedKey String   @map("encrypted_key")
+  lastFour     String   @map("last_four")
+  isSelected   Boolean  @default(false) @map("is_selected")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_llm_keys")
+}
+
 model User {
   id              String        @id @default(uuid())
   email           String        @unique
@@ -43,6 +61,7 @@ model User {
   progressEmails  ProgressEmail[]
   progressReplies ProgressEmailReply[]
   apiKey          ApiKey[]
+  llmKeys         UserLlmKey[]
 
   @@map("users")
 }

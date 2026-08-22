@@ -1,15 +1,15 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
-import { getSectionMeta } from "../../lib/navigation";
+import React, { useEffect, useRef, useState } from "react";
+import { useAuth } from "../../contexts/AuthContext";
+import { chatApi } from "../../lib/apiClient";
 
 // Persistent right-side career assistant panel.
 //
 // There is no chatbot backend in the current codebase, so this panel is a
 // self-contained UI that produces a local placeholder reply. The message flow
-// is intentionally funnelled through a single `requestAssistantReply` function
-// and every outgoing turn carries `buildContext()` (the current page + any
-// selected item), so a real backend can be wired in later by replacing only
-// that one function — no other UI changes required.
+// is intentionally funnelled through a single `requestAssistantReply` function,
+// so a real backend can be wired in later by replacing only that one function
+// — no other UI changes required. This panel does not compute or send page
+// context; the assistant's context comes from MCP tools server-side instead.
 
 const QUICK_ACTIONS = [
   { label: "Improve my resume", prompt: "Help me improve my resume." },
@@ -32,18 +32,18 @@ const nextId = () => {
   return messageId;
 };
 
-const CareerChatbot = ({ open = false, onClose = () => {} }) => {
-  const location = useLocation();
-  const sectionMeta = useMemo(
-    () => getSectionMeta(location.pathname),
-    [location.pathname],
-  );
-
+const CareerChatbot = ({
+  open = false,
+  onClose = () => {},
+  collapsed = false,
+  onToggleCollapse = () => {},
+}) => {
+  const { accessToken } = useAuth();
   const [messages, setMessages] = useState(() => [
     {
       id: nextId(),
       role: "assistant",
-      text: "Hi! I'm your career assistant. Ask me about your profile, applications, skills, or interviews — I use the page you're on for context.",
+      text: "Hi! I'm your career assistant. Ask me about your profile, applications, skills, or interviews.",
       time: formatTime(),
     },
   ]);
@@ -69,22 +69,16 @@ const CareerChatbot = ({ open = false, onClose = () => {} }) => {
     [],
   );
 
-  // The context object that would be sent to a backend alongside each message.
-  const buildContext = () => ({
-    currentSection: sectionMeta.label,
-    path: location.pathname,
-  });
-
   // Single integration seam for a future AI backend. Today it returns a local
-  // placeholder that acknowledges the page context.
-  const requestAssistantReply = (userText, context) =>
-    new Promise((resolve) => {
-      replyTimerRef.current = window.setTimeout(() => {
-        resolve(
-          `Here's how I'd help with "${userText}" from the ${context.currentSection} page.\n\nConnect an AI backend to turn this into live, personalized guidance — your page context is already included with every message.`,
-        );
-      }, 650);
-    });
+  // placeholder reply.
+  const requestAssistantReply = async (userText) => {
+    try {
+      const response = await chatApi.send({ message: userText }, accessToken);
+      return response?.data?.reply ?? "Sorry, I didn't get a reply.";
+    } catch (error) {
+      return `Something went wrong: ${error.message || "please try again."}`;
+    }
+  };
 
   const sendMessage = async (rawText) => {
     const text = rawText.trim();
@@ -92,7 +86,6 @@ const CareerChatbot = ({ open = false, onClose = () => {} }) => {
       return;
     }
 
-    const context = buildContext();
     setMessages((prev) => [
       ...prev,
       { id: nextId(), role: "user", text, time: formatTime() },
@@ -101,7 +94,7 @@ const CareerChatbot = ({ open = false, onClose = () => {} }) => {
     setIsThinking(true);
 
     try {
-      const reply = await requestAssistantReply(text, context);
+      const reply = await requestAssistantReply(text);
       setMessages((prev) => [
         ...prev,
         { id: nextId(), role: "assistant", text: reply, time: formatTime() },
@@ -122,7 +115,10 @@ const CareerChatbot = ({ open = false, onClose = () => {} }) => {
   };
 
   return (
-    <aside className={`sc-chat${open ? " is-open" : ""}`} aria-label="Career chatbot">
+    <aside
+      className={`sc-chat${open ? " is-open" : ""}${collapsed ? " is-collapsed" : ""}`}
+      aria-label="Career chatbot"
+    >
       <div className="sc-chat-head">
         <div className="sc-chat-title">
           <span className="sc-bot-icon" aria-hidden="true">
@@ -140,25 +136,34 @@ const CareerChatbot = ({ open = false, onClose = () => {} }) => {
               />
             </svg>
           </span>
-          Career Chatbot
-          <button
-            type="button"
-            className="sc-chat-close"
-            onClick={onClose}
-            aria-label="Close assistant"
-          >
-            ✕
-          </button>
+          <span className="sc-chat-title-label">Career Chatbot</span>
+          <div className="sc-chat-title-actions">
+            <button
+              type="button"
+              className="sc-chat-fold"
+              onClick={onToggleCollapse}
+              aria-label={collapsed ? "Expand assistant" : "Collapse assistant to the side"}
+              title={collapsed ? "Expand assistant" : "Collapse to the side"}
+            >
+              {collapsed ? "«" : "»"}
+            </button>
+            <button
+              type="button"
+              className="sc-chat-close"
+              onClick={onClose}
+              aria-label="Close assistant"
+            >
+              ✕
+            </button>
+          </div>
         </div>
-        <p>AI assistant with context from the current page.</p>
-        <span className="sc-chat-context">◉ Context: {sectionMeta.label}</span>
+        <p>AI assistant for your job search.</p>
       </div>
 
       <div className="sc-messages" ref={messagesRef}>
         {messages.map((message) => (
           <div key={message.id} className={`sc-message ${message.role}`}>
             {message.text}
-            <span className="timestamp">{message.time}</span>
           </div>
         ))}
         {isThinking && (
@@ -196,9 +201,6 @@ const CareerChatbot = ({ open = false, onClose = () => {} }) => {
           >
             ➤
           </button>
-        </div>
-        <div className="sc-context-note">
-          ◉ Assistant uses your profile and dashboard context
         </div>
       </form>
     </aside>

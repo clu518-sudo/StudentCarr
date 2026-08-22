@@ -12,7 +12,7 @@ const buildEndpoint = (path) => {
 };
 
 // Returns { ok: true, data } or { ok: false, errorMessage }. Never throws.
-export const callStudentCarr = async (path, body) => {
+export const callStudentCarr = async (path, body, authHeader) => {
   const endpoint = buildEndpoint(path);
   let response;
   try {
@@ -20,7 +20,7 @@ export const callStudentCarr = async (path, body) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.STUDENTCARR_API_KEY}`,
+        ...(authHeader ? { Authorization: authHeader } : {}),
       },
       body: JSON.stringify(body),
     });
@@ -42,7 +42,7 @@ export const callStudentCarr = async (path, body) => {
     return {
       ok: false,
       errorMessage:
-        "StudentCarr rejected the API key (401). Generate a new key in the web app under 'Connect to Claude Desktop' and update this extension's API key setting.",
+        "StudentCarr rejected the request (401): the session token is missing or has expired. A fresh token is minted per chat turn — ask the user to retry.",
     };
   }
 

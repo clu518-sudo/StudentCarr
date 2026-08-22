@@ -265,3 +265,20 @@ export const apiKeysApi = {
   // Shape: { success: true, data: { id, revoked: true } }
   revoke: (id, token) => apiRequest(`/keys/${id}`, {method:"DELETE"}, token),
 };
+
+export const chatApi = {
+  send: (body, token) => apiRequest("/chat", { method: "POST", body }, token),
+};
+
+// API client for the user's own saved LLM settings (name/url/key), configured
+// in the Settings panel. The selected one replaces the app's integrated/
+// env-based defaults wherever an AI service call is made on the user's behalf.
+export const llmSettingsApi = {
+  list: (token) => apiRequest("/llm-settings", { method: "GET" }, token),
+  create: (body, token) =>
+    apiRequest("/llm-settings", { method: "POST", body }, token),
+  select: (id, token) =>
+    apiRequest(`/llm-settings/${id}/select`, { method: "POST" }, token),
+  remove: (id, token) =>
+    apiRequest(`/llm-settings/${id}`, { method: "DELETE" }, token),
+};

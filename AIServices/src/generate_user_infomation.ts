@@ -132,9 +132,16 @@ const profileDocumentInputSchema = z.object({
   uploadedAt: z.string().optional(),
 });
 
+const llmSettingsSchema = z.object({
+  apiKey: z.string().trim().min(1).optional(),
+  model: z.string().trim().min(1).optional(),
+  baseUrl: z.string().trim().min(1).optional(),
+});
+
 const generateRequestSchema = z.object({
   currentManualProfile: manualProfileSchema,
   documents: z.array(profileDocumentInputSchema).min(1),
+  llmSettings: llmSettingsSchema.optional(),
 });
 
 const extractPersonalPreferencesEducationOutputSchema =
@@ -165,6 +172,7 @@ const GraphState = Annotation.Root({
 
 type ManualProfile = z.infer<typeof manualProfileSchema>;
 type ProfileDocumentInput = z.infer<typeof profileDocumentInputSchema>;
+type LlmSettings = z.infer<typeof llmSettingsSchema>;
 type PreparedDocument = {
   documentType: string;
   originalName: string;
@@ -497,8 +505,14 @@ const buildDocumentContext = (
   return chunks.join("\n\n-----\n\n");
 };
 
-const buildModel = () => {
-  if (!OPENAI_API_KEY) {
+// llmSettings, when provided, comes from a user's own Settings panel entry
+// (name/url/key) and takes priority over this service's environment variables.
+const buildModel = (llmSettings?: LlmSettings) => {
+  const apiKey = llmSettings?.apiKey || OPENAI_API_KEY;
+  const model = llmSettings?.model || OPENAI_MODEL;
+  const baseUrl = llmSettings?.baseUrl || OPENAI_BASE_URL;
+
+  if (!apiKey) {
     throw new ServiceError(
       "OPENAI_API_KEY (or DASHSCOPE_API_KEY) is required for profile generation",
       500,
@@ -506,28 +520,30 @@ const buildModel = () => {
   }
 
   return new ChatOpenAI({
-    apiKey: OPENAI_API_KEY,
-    model: OPENAI_MODEL,
+    apiKey,
+    model,
     temperature: 0,
     timeout: OPENAI_TIMEOUT_MS,
     maxRetries: OPENAI_MAX_RETRIES,
-    configuration: OPENAI_BASE_URL ? { baseURL: OPENAI_BASE_URL } : undefined,
+    configuration: baseUrl ? { baseURL: baseUrl } : undefined,
   });
 };
 
 export async function generateUserInformationProfile({
   currentManualProfile,
   documents,
+  llmSettings,
   onProgress,
 }: {
   currentManualProfile: ManualProfile;
   documents: ProfileDocumentInput[];
+  llmSettings?: LlmSettings;
   onProgress?: (message: string) => void | Promise<void>;
 }): Promise<ManualProfile> {
   const safeCurrent = sanitizeManualProfile(currentManualProfile);
   const safeDocuments = z.array(profileDocumentInputSchema).parse(documents);
 
-  const llm = buildModel();
+  const llm = buildModel(llmSettings);
 
   const runProgress = async (message: string) => {
     if (onProgress) {
@@ -814,6 +830,7 @@ const handleGenerateRequest = async (
     const manualProfile = await generateUserInformationProfile({
       currentManualProfile: payload.currentManualProfile,
       documents: payload.documents,
+      llmSettings: payload.llmSettings,
     });
 
     writeJson(res, 200, {
