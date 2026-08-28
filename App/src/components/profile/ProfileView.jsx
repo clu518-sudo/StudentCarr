@@ -323,19 +323,9 @@ const ProfileView = () => {
     acc[type] = documents.filter((document) => document.documentType === type);
     return acc;
   }, {});
-  const canGenerateEducation = Boolean(documentsByType.Transcript?.length);
-  const canGenerateWorkExperience = Boolean(
-    documentsByType["Working History & Related Project Description"]?.length,
-  );
-  const canGenerateProjects = Boolean(documentsByType.Project?.length);
-  const canGenerateCertifications = Boolean(
-    documentsByType.Certification?.length,
-  );
-  const canGenerateManualProfile =
-    canGenerateEducation ||
-    canGenerateWorkExperience ||
-    canGenerateProjects ||
-    canGenerateCertifications;
+  // Generation sends every parsed document to the model regardless of type
+  // (listDocumentsWithParsedTextForUser), so any upload is enough to run it.
+  const canGenerateManualProfile = documents.length > 0;
 
   return (
     <div className="space-y-6">

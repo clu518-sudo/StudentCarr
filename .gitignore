@@ -142,7 +142,10 @@ tmp/
 temp/
 
 # database
-.db
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 
 # files
 uploads/
