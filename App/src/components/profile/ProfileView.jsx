@@ -378,7 +378,10 @@ const ProfileView = () => {
         </div>
 
         {activeMode === "manual" ? (
-          <form className="space-y-8" onSubmit={saveManualProfile}>
+          <form
+            className="profile-manual-form space-y-8"
+            onSubmit={saveManualProfile}
+          >
             <section>
               <h2 className={sectionTitleClass}>Personal Info</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

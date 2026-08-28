@@ -1171,6 +1171,27 @@
   color: #1f2937;
 }
 
+/* Exception: the Manual Entry editors are form fields, not documents, so they
+   follow the dark form controls above instead of the light paper surface. */
+.sc-dark .profile-manual-form .tiptap-shell {
+  background-color: #0c1727;
+  border-color: #31445d;
+  color: #ffffff;
+}
+.sc-dark .profile-manual-form .tiptap-shell .ProseMirror {
+  color: #ffffff;
+}
+.sc-dark .profile-manual-form .tiptap-toolbar {
+  background-color: #16263c;
+  border-color: #31445d;
+}
+.sc-dark .profile-manual-form .tiptap-toolbar button {
+  color: #cbd5e7;
+}
+.sc-dark .profile-manual-form .tiptap-toolbar button:hover {
+  background-color: #1d3050;
+}
+
 /* ==========================================================================
    Auth pages (Login / Signup) dark theme
    --------------------------------------------------------------------------
