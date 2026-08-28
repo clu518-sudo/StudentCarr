@@ -4,6 +4,7 @@ import {
   listEmailsForApplication,
   getEmailDetailById,
 } from "../processTracking/pt.service.js";
+import { emitUserEvent, USER_EVENT_TYPES } from "../events/index.js";
 
 //                            ── Handlers ──
 // One function per message tag. Each takes userId and returns the payload
@@ -14,6 +15,12 @@ const getEmailsHandler = async (userId) => {
 
     // 1) Sync latest data from Gmail/AI pipeline
     const syncResult = await syncProgressTrackingForUser(userId);
+
+    // The sync is committed here, so any Progress page the user has open can
+    // reload itself instead of showing data the assistant has already replaced.
+    emitUserEvent(userId, USER_EVENT_TYPES.PROGRESS_TRACKING_UPDATED, {
+        sync: syncResult.sync,
+    });
 
     // 2) Get applications
     const { applications = [] } = await listApplicationsForUser(userId);

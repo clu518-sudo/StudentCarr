@@ -1,6 +1,9 @@
 import { sendMessageSchema, validate } from "./chat.schemas.js";
 import { requestChatTurn } from "./aiServiceClient.js"
 import { getDecryptedLlmKey } from "../llmSettings/llmSettings.service.js";
+import { signMcpToken } from "./mcpToken.js";
+import env from "../config/env.js";
+
 
 const formatZodError = (error) => {
   if (!error?.issues) return "Invalid request payload";
@@ -26,8 +29,16 @@ const sendChatMessage = async (req, res, next) => {
       model: userLlmKey.model || undefined,
       baseUrl: userLlmKey.baseUrl || undefined,
     };
+    
+    // Minted per turn from the verified session, never from client input.
+    const result = await requestChatTurn({
+      message: payload.message,
+      userId: req.user.id,
+      mcpToken: signMcpToken(req.user.id),
+      maxSteps: env.chatMaxSteps,
+      llmSettings,
+    });
 
-    const result = await requestChatTurn({ message: payload.message, llmSettings });
     return res.json({
       success: true,
       data: { reply: result.reply },

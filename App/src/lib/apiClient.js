@@ -88,6 +88,36 @@ export const authApi = {
   me: (token) => apiRequest("/auth/me", { method: "GET" }, token),
 };
 
+// Long-lived per-user event stream. Several contexts subscribe to it
+// independently; the server fans one event out to every open subscriber.
+export const subscribeUserEvents = async (
+  { onEvent = () => {}, signal },
+  token,
+) => {
+  const response = await fetch(`${API_BASE_URL}/events`, {
+    method: "GET",
+    headers: buildHeaders(token),
+    credentials: "include",
+    signal,
+  });
+
+  if (!response.ok) {
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      // Ignore parsing failure and use fallback message.
+    }
+
+    throw new Error(payload?.error || "Failed to subscribe to events");
+  }
+
+  await streamSseResponse(response, {
+    onEvent,
+    errorEventMessage: "Event stream failed",
+  });
+};
+
 export const profileManagementApi = {
   getProfile: (token) =>
     apiRequest("/profile-management", { method: "GET" }, token),
@@ -141,30 +171,7 @@ export const profileManagementApi = {
       { method: "GET", responseType: "blob" },
       token,
     ),
-  subscribeEvents: async ({ onEvent = () => {}, signal }, token) => {
-    const response = await fetch(`${API_BASE_URL}/events`, {
-      method: "GET",
-      headers: buildHeaders(token),
-      credentials: "include",
-      signal,
-    });
-
-    if (!response.ok) {
-      let payload = null;
-      try {
-        payload = await response.json();
-      } catch {
-        // Ignore parsing failure and use fallback message.
-      }
-
-      throw new Error(payload?.error || "Failed to subscribe to events");
-    }
-
-    await streamSseResponse(response, {
-      onEvent,
-      errorEventMessage: "Event stream failed",
-    });
-  },
+  subscribeEvents: (options, token) => subscribeUserEvents(options, token),
   generateManualProfileStream: async (
     { sectionName, onEvent = () => {}, signal },
     token,

@@ -183,6 +183,9 @@ const handleChatTurn = async (
   try {
     const payload = (await parseRequestBody(req)) as {
       message?: unknown;
+      userId?: unknown;
+      mcpToken?: unknown;
+      maxSteps?: unknown;
       llmSettings?: unknown;
     };
     if (typeof payload?.message !== "string" || !payload.message.trim()) {
@@ -192,8 +195,12 @@ const handleChatTurn = async (
 
     const result = await runChatTurn({
       message: payload.message,
+      userId: payload.userId,
+      mcpToken: payload.mcpToken,
+      maxSteps: payload.maxSteps,
       llmSettings: payload.llmSettings,
     });
+
     writeJson(res, 200, { success: true, data: result });
   } catch (error) {
     const statusCode = error instanceof ServiceError ? error.statusCode : 500;

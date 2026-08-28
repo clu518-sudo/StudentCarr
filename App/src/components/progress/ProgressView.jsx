@@ -38,9 +38,11 @@ const ProgressView = () => {
     isSyncRunning,
     expandedEmails,
     selectedApplicationsCount,
+    allApplicationsSelected,
     ensureProgressLoaded,
     loadGmailStatus,
     handleToggleApplicationSelection,
+    handleToggleSelectAllApplications,
     handleDeleteSelectedApplications,
     handleToggleApplication,
     handleSelectEmail,
@@ -175,16 +177,26 @@ const ProgressView = () => {
                   Expand an application to inspect all related emails.
                 </p>
               </div>
-              <button
-                type="button"
-                className="btn-primary disabled:cursor-not-allowed disabled:opacity-70"
-                onClick={handleDeleteSelectedApplications}
-                disabled={!selectedApplicationsCount || deletingApplications}
-              >
-                {deletingApplications
-                  ? "Deleting..."
-                  : `Delete Selected${selectedApplicationsCount ? ` (${selectedApplicationsCount})` : ""}`}
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  className="btn-secondary px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-70"
+                  onClick={handleToggleSelectAllApplications}
+                  disabled={!applications.length || deletingApplications}
+                >
+                  {allApplicationsSelected ? "Deselect All" : "Select All"}
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary disabled:cursor-not-allowed disabled:opacity-70"
+                  onClick={handleDeleteSelectedApplications}
+                  disabled={!selectedApplicationsCount || deletingApplications}
+                >
+                  {deletingApplications
+                    ? "Deleting..."
+                    : `Delete Selected${selectedApplicationsCount ? ` (${selectedApplicationsCount})` : ""}`}
+                </button>
+              </div>
             </div>
           </div>
 
