@@ -1,5 +1,6 @@
 import { mcpDispatcherSchema, validate } from "./mcp.schemas.js";
-import { runService } from "./mcp.service.js";
+import { runService, getManualProfile } from "./mcp.service.js";
+import { renderManualProfileText } from "./profileText.js";
 
 const formatZodError = (error) => {
   if (!error?.issues) return "Invalid request payload";
@@ -27,4 +28,19 @@ const mcpDispatcher = async (req, res, next) => {
     } 
 };
 
-export { mcpDispatcher }; 
+// userId comes from the verified scoped token, never from the request body.
+// The service keeps returning structured data; only this boundary renders the
+// plain-text view the model reads.
+const mcpProfile = async (req, res, next) => {
+    try {
+        const { profile } = await getManualProfile(req.user.id);
+        return res.json({
+            success: true,
+            data: { profileText: renderManualProfileText(profile) },
+        });
+    } catch (error) {
+        return next(error);
+    }
+};
+
+export { mcpDispatcher, mcpProfile };

@@ -5,10 +5,12 @@
 // Nothing else needs to change.
 
 import * as processTrack from "./processTrack.js";
+import * as getProfile from "./getProfile.js";
 // import * as myNextTool from "./myNextTool.js";
 
 const tools = [
   processTrack,
+  getProfile,
   // nextTool
 ];
 

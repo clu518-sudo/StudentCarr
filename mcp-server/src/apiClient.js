@@ -71,3 +71,10 @@ export const toMcpResult = (result) =>
         content: [{ type: "text", text: JSON.stringify(result.data, null, 2) }],
       }
     : { isError: true, content: [{ type: "text", text: result.errorMessage }] };
+
+// Same error mapping, but for endpoints that already render their own text for
+// the model. `pickText` selects it from the response payload.
+export const toMcpTextResult = (result, pickText) =>
+  result.ok
+    ? { content: [{ type: "text", text: pickText(result.data) || "" }] }
+    : { isError: true, content: [{ type: "text", text: result.errorMessage }] };
