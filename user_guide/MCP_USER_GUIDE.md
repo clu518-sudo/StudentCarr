@@ -8,10 +8,12 @@ Connect Claude Desktop to your Gmail through StudentCarr. Once set up, you can a
 
 StudentCarr exposes one MCP tool to Claude Desktop:
 
-- **`process_track`** — sends a routing message to StudentCarr. The supported command today is `getEmails`, which:
-  1. Syncs your Gmail with StudentCarr,
-  2. Aggregates job-application emails per application,
+- **`process_track`** — takes no arguments and:
+  1. Reads the job-application emails already stored in your StudentCarr Progress Tracking database,
+  2. Aggregates them per application,
   3. Returns the full email details (subject, body, thread).
+
+It is **read-only**. It never scans your Gmail and never changes your data. New emails are imported only when you press **Sync** on the Progress Tracking page in the web app — so if Claude reports no records, or data that looks out of date, press Sync there and ask again.
 
 You stay in control: Claude Desktop never sees your Gmail credentials. It only holds a StudentCarr API key, which you can revoke at any time.
 
@@ -67,7 +69,7 @@ Open a new chat in Claude Desktop and try:
 
 > *"Use StudentCarr to fetch my latest job application emails."*
 
-Claude should call `process_track` with `message: "getEmails"` and reply with a summary of your latest application emails.
+Claude should call `process_track` and reply with a summary of your latest application emails.
 
 ---
 
@@ -125,11 +127,11 @@ Same as the easy path: ask Claude to fetch your latest job application emails an
 
 Once connected, you can prompt Claude naturally. Examples:
 
-- *"Sync my Gmail with StudentCarr and show me what came in."*
+- *"Show me what StudentCarr has on my job applications."*
 - *"Pull my latest job application emails."*
-- *"Summarize the most recent application updates from my inbox."*
+- *"Summarize the most recent application updates."*
 
-Under the hood, Claude calls the `process_track` tool with `message: "getEmails"`, which triggers a fresh sync and returns the aggregated emails. More commands will be added over time — Claude will discover them automatically through the tool's description.
+Under the hood, Claude calls the `process_track` tool, which reads the stored emails and returns them aggregated per application. To bring in mail that arrived since your last import, press **Sync** on the Progress Tracking page first — Claude cannot start a sync itself. More capabilities will be added over time; Claude will discover them automatically through the tool list.
 
 ---
 
@@ -180,9 +182,9 @@ The MCP server can't reach the API URL.
 - For the manual setup, check that `claude_desktop_config.json` is valid JSON (a missing comma will silently disable all servers).
 - Check the Claude Desktop logs — on macOS run `Console.app` and filter for "Claude"; on Windows logs live under `%APPDATA%\Claude\logs`.
 
-### Empty results from `getEmails`
+### Empty results when fetching emails
 
-A successful sync that returns no emails just means StudentCarr didn't find any job-application emails to surface in your recent Gmail. Try sending yourself a test application email and rerun.
+`process_track` reads what StudentCarr has already stored, so an empty result means nothing has been imported yet. Open **Progress Tracking** in the web app, press **Sync**, then ask Claude again. If Sync itself finds nothing, StudentCarr didn't recognise any job-application emails in your recent Gmail — try sending yourself a test application email and sync again.
 
 ---
 
@@ -197,4 +199,4 @@ A successful sync that returns no emails just means StudentCarr didn't find any 
 
 ## What's next
 
-This guide covers the current `getEmails` flow. As StudentCarr adds more MCP commands (e.g. drafting replies, marking applications), they will appear automatically — Claude Desktop reads the tool description on connect, so no config changes are needed. Watch the **Connect to Claude Desktop** page for new command tags.
+This guide covers the current email-reading flow. As StudentCarr adds more MCP tools (e.g. drafting replies, marking applications), they will appear automatically — Claude Desktop reads the tool list on connect, so no config changes are needed. Watch the **Connect to Claude Desktop** page for new capabilities.

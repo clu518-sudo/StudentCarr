@@ -29,12 +29,25 @@ export const apiRequest = async (path, options = {}, token = null) => {
       ? JSON.stringify(options.body)
       : undefined;
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: options.method || "GET",
-    headers: buildHeaders(token, options.headers, hasFormData),
-    credentials: "include",
-    body,
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method: options.method || "GET",
+      headers: buildHeaders(token, options.headers, hasFormData),
+      credentials: "include",
+      body,
+    });
+  } catch (networkError) {
+    // fetch() only rejects when the request never completed at all — server
+    // down, offline, DNS or CORS. Its native message is "Failed to fetch",
+    // which is meaningless to a user, so never let it reach the UI.
+    const error = new Error(
+      "Unable to reach the server. Please check your connection and try again.",
+    );
+    error.isNetworkError = true;
+    error.cause = networkError;
+    throw error;
+  }
 
   if (!response.ok) {
     let payload = null;

@@ -1,10 +1,8 @@
 import {
-  syncProgressTrackingForUser,
   listApplicationsForUser,
   listEmailsForApplication,
   getEmailDetailById,
 } from "../processTracking/pt.service.js";
-import { emitUserEvent, USER_EVENT_TYPES } from "../events/index.js";
 import { getProfileForUser } from "../profileManagement/pm.service.js";
 
 // Manual-entry rich-text fields are stored as tiptap HTML. Models read plain
@@ -39,21 +37,18 @@ const stripHtml = (value) => {
 // that the controller wraps in `{ success: true, data }`.
 // When a handler gets large, move it to ./handlers/<tag>.js and re-import.
 
+const NO_RECORDS_MESSAGE =
+    "No records yet. Open the Progress Tracking page in StudentCarr and press Sync to import job-application emails from Gmail.";
+
+// Read-only. This deliberately does NOT run the Gmail/AI sync workflow: the
+// assistant reports what Progress Tracking has already stored, and only the
+// Sync button on the Progress Tracking page writes new data.
 const getEmailsHandler = async (userId) => {
 
-    // 1) Sync latest data from Gmail/AI pipeline
-    const syncResult = await syncProgressTrackingForUser(userId);
-
-    // The sync is committed here, so any Progress page the user has open can
-    // reload itself instead of showing data the assistant has already replaced.
-    emitUserEvent(userId, USER_EVENT_TYPES.PROGRESS_TRACKING_UPDATED, {
-        sync: syncResult.sync,
-    });
-
-    // 2) Get applications
+    // 1) Get applications already stored for this user
     const { applications = [] } = await listApplicationsForUser(userId);
 
-    // 3) Collect all email IDs from each application
+    // 2) Collect all email IDs from each application
     const emailIdNested = await Promise.all(
         applications.map( async (app) => {
             const { emails = [] } = await listEmailsForApplication(userId, app.id);
@@ -63,7 +58,7 @@ const getEmailsHandler = async (userId) => {
 
     const emailIds = emailIdNested.flat();
 
-    // 4) Fetch full details (body + replies/thread)
+    // 3) Fetch full details (body + replies/thread)
     const emailDetails = await Promise.all(
         emailIds.map(async (emailId) => {
             const detail = await getEmailDetailById(userId, emailId);
@@ -71,11 +66,21 @@ const getEmailsHandler = async (userId) => {
         }),
     );
 
+    // Nothing stored yet — tell the model to say so rather than let it assume
+    // the mailbox is empty or that it should try to sync.
+    if (!emailDetails.length) {
+        return {
+            hasRecords: false,
+            emails: [],
+            message: NO_RECORDS_MESSAGE,
+        };
+    }
+
     return {
-        sync: syncResult.sync,
+        hasRecords: true,
         emails: emailDetails,
     };
-    
+
 };
 
 

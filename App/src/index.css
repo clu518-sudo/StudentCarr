@@ -299,6 +299,13 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  /* Pin this column to the viewport so the page itself never scrolls — the
+     workspace below scrolls inside it instead (it already sets overflow:auto).
+     That keeps the fold button, which is positioned against this box, on
+     screen at all times, the same way the sticky sidebar and chat panel stay
+     put. Reverted to auto height under 900px, where the fold rails are gone
+     and normal document scrolling is wanted. */
+  height: 100vh;
   position: relative;
 }
 .sc-topbar {
@@ -957,6 +964,10 @@
   }
   .sc-workspace-fold {
     display: none;
+  }
+  /* No fold rails at this width, so let the page scroll normally again. */
+  .sc-main {
+    height: auto;
   }
   .sc-chat.is-collapsed .sc-chat-head {
     padding: 22px 20px 16px;

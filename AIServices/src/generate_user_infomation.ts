@@ -441,10 +441,12 @@ const mergeProfile = (
           ? item.yearsOfExperience
           : undefined,
     })),
+    // Name alone identifies a certification: the same credential often comes
+    // back with a differently worded issuer or a missing date, and keying on
+    // those would keep both copies.
     certifications: uniqueByKey(
       [...extracted.certifications, ...current.certifications],
-      (item) =>
-        `${normalizeText(item.name).toLowerCase()}|${normalizeText(item.issuer).toLowerCase()}|${normalizeText(item.issueDate).toLowerCase()}`,
+      (item) => normalizeText(item.name).toLowerCase(),
     ),
   };
 

@@ -91,7 +91,14 @@ export const AuthProvider = ({ children }) => {
       applyAuthState(nextUser, response.data.accessToken);
       return { success: true };
     } catch (error) {
-      return { success: false, error: error.message };
+      // The status is what lets the login form tell a rejected credential
+      // (401) apart from a validation or transport problem.
+      return {
+        success: false,
+        error: error.message,
+        status: error.status,
+        isNetworkError: Boolean(error.isNetworkError),
+      };
     } finally {
       setLoading(false);
     }

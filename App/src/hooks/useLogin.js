@@ -55,13 +55,27 @@ export const useLogin = () => {
     }
 
     const result = await login(formData.email, formData.password);
-    
+
     if (result.success) {
       navigate('/dashboard');
-    } else {
-      const message = result.error || 'Login failed';
-      const nextErrors = { general: message };
+      return;
+    }
 
+    // 401 is the only thing the API returns when the email/password check
+    // fails. Say that plainly rather than passing the raw error through.
+    if (result.status === 401) {
+      setErrors({
+        general: 'Incorrect email or password. Please try again.',
+      });
+      return;
+    }
+
+    const message = result.error || 'Login failed';
+    const nextErrors = { general: message };
+
+    // Field-level messages only make sense for the server's own validation
+    // errors; anything else belongs in the banner alone.
+    if (result.status === 400) {
       if (message.toLowerCase().includes('email')) {
         nextErrors.email = message;
       }
@@ -69,9 +83,9 @@ export const useLogin = () => {
       if (message.toLowerCase().includes('password')) {
         nextErrors.password = message;
       }
-
-      setErrors(nextErrors);
     }
+
+    setErrors(nextErrors);
   };
 
   const handleGoogleLogin = async () => {

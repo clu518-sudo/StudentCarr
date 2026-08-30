@@ -7,13 +7,11 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { progressTrackingApi, subscribeUserEvents } from "../lib/apiClient";
+import { progressTrackingApi } from "../lib/apiClient";
 import { useAuth } from "./AuthContext";
 
 const ProgressContext = createContext(null);
 const syncStatusPollingIntervalMs = 3000;
-const sseReconnectDelaysMs = [1000, 2000, 5000, 10000, 30000];
-const progressTrackingUpdatedEvent = "progress_tracking_updated";
 
 export const useProgress = () => {
   const context = useContext(ProgressContext);
@@ -50,10 +48,6 @@ export const ProgressProvider = ({ children }) => {
   const [error, setError] = useState("");
   const hasLoadedProgressRef = useRef(false);
   const previousSyncStatusRef = useRef("");
-  const refreshAfterSyncRef = useRef(null);
-  const eventsAbortControllerRef = useRef(null);
-  const eventsReconnectTimerRef = useRef(null);
-  const eventsReconnectAttemptRef = useRef(0);
 
   const selectedEmailId = selectedEmailDetail?.id || selectedEmail?.id || "";
   const isInviteEmail = selectedEmailDetail?.intent === "invite";
@@ -341,104 +335,9 @@ export const ProgressProvider = ({ children }) => {
     previousSyncStatusRef.current = currentSyncStatus;
   }, [gmailStatus?.sync?.status, refreshAfterSync, syncMessage]);
 
-  // Held in a ref so the event stream below is not torn down and reconnected
-  // every time the selection state refreshAfterSync closes over changes.
-  useEffect(() => {
-    refreshAfterSyncRef.current = refreshAfterSync;
-  }, [refreshAfterSync]);
-
-  // A sync can also be triggered outside this page — the chatbot's MCP tool
-  // runs one server-side — so listen for the Backend event instead of waiting
-  // for the user to press Sync here.
-  useEffect(() => {
-    if (!accessToken) {
-      return undefined;
-    }
-
-    let isCancelled = false;
-
-    const clearReconnectTimer = () => {
-      if (eventsReconnectTimerRef.current) {
-        window.clearTimeout(eventsReconnectTimerRef.current);
-        eventsReconnectTimerRef.current = null;
-      }
-    };
-
-    const scheduleReconnect = () => {
-      if (isCancelled) {
-        return;
-      }
-
-      clearReconnectTimer();
-      const delayIndex = Math.min(
-        eventsReconnectAttemptRef.current,
-        sseReconnectDelaysMs.length - 1,
-      );
-      const delayMs = sseReconnectDelaysMs[delayIndex];
-      eventsReconnectAttemptRef.current += 1;
-
-      eventsReconnectTimerRef.current = window.setTimeout(() => {
-        if (!isCancelled) {
-          connectToEvents();
-        }
-      }, delayMs);
-    };
-
-    const handleProgressTrackingUpdated = async (payload) => {
-      const processedMessages = payload?.sync?.processedMessages || 0;
-      await loadGmailStatus({ silent: true });
-      await refreshAfterSyncRef.current?.();
-      setSyncMessage(
-        `Assistant synced ${processedMessages} relevant email(s) from your mailbox.`,
-      );
-    };
-
-    const connectToEvents = async () => {
-      clearReconnectTimer();
-      eventsAbortControllerRef.current?.abort();
-      const abortController = new AbortController();
-      eventsAbortControllerRef.current = abortController;
-
-      try {
-        await subscribeUserEvents(
-          {
-            signal: abortController.signal,
-            onEvent: (eventName, payload) => {
-              if (eventName === "connected") {
-                eventsReconnectAttemptRef.current = 0;
-                return;
-              }
-
-              if (eventName === progressTrackingUpdatedEvent) {
-                handleProgressTrackingUpdated(payload);
-              }
-            },
-          },
-          accessToken,
-        );
-
-        if (!isCancelled) {
-          scheduleReconnect();
-        }
-      } catch (streamError) {
-        if (isCancelled || streamError?.name === "AbortError") {
-          return;
-        }
-
-        scheduleReconnect();
-      }
-    };
-
-    connectToEvents();
-
-    return () => {
-      isCancelled = true;
-      clearReconnectTimer();
-      eventsAbortControllerRef.current?.abort();
-      eventsAbortControllerRef.current = null;
-      eventsReconnectAttemptRef.current = 0;
-    };
-  }, [accessToken, loadGmailStatus]);
+  // Progress data only ever changes from the Sync button on this page, so there
+  // is nothing to listen for: the assistant's MCP tool reads the database and
+  // never writes to it.
 
   const handleToggleApplicationSelection = useCallback(
     (applicationId, checked) => {
