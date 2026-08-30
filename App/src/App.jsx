@@ -13,6 +13,7 @@ import SignupView from "./components/auth/SignupView";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import DashboardView from "./components/dashboard/DashboardView";
 import ProfileView from "./components/profile/ProfileView";
+import ProfileEntryAddView from "./components/profile/ProfileEntryAddView";
 import JobsView from "./components/jobs/JobsView";
 import ProgressView from "./components/progress/ProgressView";
 import SkillManagementView from "./components/skills/SkillManagementView";
@@ -50,6 +51,12 @@ function App() {
                   <Route index element={<Navigate to="/dashboard" replace />} />
                   <Route path="dashboard" element={<DashboardView />} />
                   <Route path="profile" element={<ProfileView />} />
+                  {/* Dedicated add page per repeatable profile section, shown
+                      in the workspace column. */}
+                  <Route
+                    path="profile/add/:section"
+                    element={<ProfileEntryAddView />}
+                  />
                   <Route path="jobs" element={<JobsView />} />
                   <Route path="progress" element={<ProgressView />} />
                   <Route path="mcp" element={<McpSetupView />} />

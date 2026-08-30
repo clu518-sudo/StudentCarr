@@ -338,6 +338,55 @@
   overflow: auto;
 }
 
+/* Workspace scrollbar ---------------------------------------------------
+   The workspace column scrolls inside itself (overflow: auto above), so the
+   platform default light-grey scrollbar sits directly on the dark shell.
+   Repaint it with the shell palette; applied to nested scrollers inside the
+   workspace too, so any scrolling panel on a page matches. Firefox uses the
+   standard `scrollbar-*` properties, WebKit/Blink the `::-webkit-*` ones. */
+.sc-workspace,
+.sc-workspace *,
+.sc-messages,
+.sc-nav {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sc-border, #24344d) transparent;
+}
+.sc-workspace::-webkit-scrollbar,
+.sc-workspace *::-webkit-scrollbar,
+.sc-messages::-webkit-scrollbar,
+.sc-nav::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.sc-workspace::-webkit-scrollbar-track,
+.sc-workspace *::-webkit-scrollbar-track,
+.sc-messages::-webkit-scrollbar-track,
+.sc-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sc-workspace::-webkit-scrollbar-thumb,
+.sc-workspace *::-webkit-scrollbar-thumb,
+.sc-messages::-webkit-scrollbar-thumb,
+.sc-nav::-webkit-scrollbar-thumb {
+  background: var(--sc-border, #24344d);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 999px;
+}
+.sc-workspace::-webkit-scrollbar-thumb:hover,
+.sc-workspace *::-webkit-scrollbar-thumb:hover,
+.sc-messages::-webkit-scrollbar-thumb:hover,
+.sc-nav::-webkit-scrollbar-thumb:hover {
+  background: #3a5074;
+  background-clip: padding-box;
+}
+.sc-workspace::-webkit-scrollbar-corner,
+.sc-workspace *::-webkit-scrollbar-corner,
+.sc-messages::-webkit-scrollbar-corner,
+.sc-nav::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 /* Collapsed workspace rail (desktop "fold to the side") ----------------- */
 .sc-workspace-fold {
   position: absolute;

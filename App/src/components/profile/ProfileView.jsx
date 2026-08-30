@@ -1,6 +1,17 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useProfile, emptyProfile } from "../../contexts/ProfileContext";
 import RichTextEditor from "../common/RichTextEditor";
+import { SECTION_LABELS, findDuplicatedSection } from "../../lib/profileEntries";
+import {
+  inputClass,
+  parseCsv,
+  profileActionButtonClass,
+  profileDangerButtonClass,
+  profileDisabledButtonClass,
+  sectionTitleClass,
+  toCsv,
+} from "./profileFormConfig";
 
 const DOCUMENT_TYPES = [
   "Resume",
@@ -12,76 +23,8 @@ const DOCUMENT_TYPES = [
   "Working History & Related Project Description",
 ];
 
-const emptyEducation = {
-  school: "",
-  degree: "",
-  fieldOfStudy: "",
-  startDate: "",
-  endDate: "",
-  grade: "",
-  description: "",
-  isCurrent: false,
-};
-
-const emptyWork = {
-  company: "",
-  title: "",
-  location: "",
-  startDate: "",
-  endDate: "",
-  isCurrent: false,
-  description: "",
-  achievements: [],
-};
-
-const emptyProject = {
-  name: "",
-  role: "",
-  description: "",
-  technologies: [],
-  startDate: "",
-  endDate: "",
-  projectUrl: "",
-  repositoryUrl: "",
-};
-
-const emptySkill = {
-  name: "",
-  level: "",
-  category: "",
-  yearsOfExperience: "",
-  keywords: [],
-};
-
-const emptyCertification = {
-  name: "",
-  issuer: "",
-  issueDate: "",
-  expiryDate: "",
-  credentialId: "",
-  credentialUrl: "",
-};
-
-const parseCsv = (value) =>
-  value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-
 const parseCsvInput = (value) => value.split(",");
 
-const toCsv = (items = []) => items.join(", ");
-
-const inputClass =
-  "w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100";
-
-const sectionTitleClass = "text-lg font-semibold text-gray-900 mb-4";
-const profileActionButtonClass =
-  "inline-flex items-center justify-center rounded-lg border border-primary-600 bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-primary-700 hover:border-primary-700";
-const profileDangerButtonClass =
-  "inline-flex items-center justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 transition-colors duration-200 hover:bg-red-100";
-const profileDisabledButtonClass =
-  "inline-flex items-center justify-center rounded-lg border border-gray-200 bg-gray-100 px-4 py-2 text-sm font-medium text-gray-400 cursor-not-allowed";
 const getParserStatus = (document) =>
   document?.parserStatus || document?.status || "pending";
 
@@ -114,6 +57,7 @@ const getParserStatusClass = (status) => {
 };
 
 const ProfileView = () => {
+  const navigate = useNavigate();
   const [activeMode, setActiveMode] = useState("manual");
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
   const [deletingAll, setDeletingAll] = useState(false);
@@ -202,11 +146,13 @@ const ProfileView = () => {
     }));
   };
 
-  const addArrayItem = (section, template) => {
-    setManualProfile((prev) => ({
-      ...prev,
-      [section]: [...(prev[section] || []), template],
-    }));
+  // Adding an entry happens on its own subpage in the workspace column, which
+  // renders the fields for that section and applies the duplicate-name check
+  // before the entry comes back into this form.
+  const openAddPage = (section) => {
+    setError("");
+    setSuccessMessage("");
+    navigate(`/profile/add/${section}`);
   };
 
   const updateArrayItem = (
@@ -239,8 +185,8 @@ const ProfileView = () => {
   };
 
   const validateManualForm = () => {
-    const hasMissingSchool = manualProfile.education.some(
-      (item) => !item.school?.trim(),
+    const hasMissingEducationBasics = manualProfile.education.some(
+      (item) => !item.school?.trim() || !item.degree?.trim(),
     );
     const hasMissingWorkBasics = manualProfile.workExperience.some(
       (item) => !item.company?.trim() || !item.title?.trim(),
@@ -255,12 +201,20 @@ const ProfileView = () => {
       (item) => !item.name?.trim(),
     );
 
-    if (hasMissingSchool) return "Each education entry needs a school name.";
+    if (hasMissingEducationBasics)
+      return "Each education entry needs a school name and degree.";
     if (hasMissingWorkBasics) return "Each work entry needs company and title.";
     if (hasMissingProjectName) return "Each project entry needs a name.";
     if (hasMissingSkill) return "Each skill entry needs a skill name.";
     if (hasMissingCertification)
       return "Each certification entry needs a name.";
+
+    // A name can only be edited into a duplicate after the entry was added, so
+    // the same rule that guards Add is re-checked here before saving.
+    const duplicatedSection = findDuplicatedSection(manualProfile);
+    if (duplicatedSection)
+      return `Two ${SECTION_LABELS[duplicatedSection]} entries share the same name. Remove the duplicate before saving.`;
+
     return "";
   };
 
@@ -532,7 +486,7 @@ const ProfileView = () => {
                 <button
                   type="button"
                   className={profileActionButtonClass}
-                  onClick={() => addArrayItem("education", emptyEducation)}
+                  onClick={() => openAddPage("education")}
                 >
                   Add Education
                 </button>
@@ -667,7 +621,7 @@ const ProfileView = () => {
                 <button
                   type="button"
                   className={profileActionButtonClass}
-                  onClick={() => addArrayItem("workExperience", emptyWork)}
+                  onClick={() => openAddPage("workExperience")}
                 >
                   Add Work Experience
                 </button>
@@ -803,7 +757,7 @@ const ProfileView = () => {
                 <button
                   type="button"
                   className={profileActionButtonClass}
-                  onClick={() => addArrayItem("projects", emptyProject)}
+                  onClick={() => openAddPage("projects")}
                 >
                   Add Project
                 </button>
@@ -936,7 +890,7 @@ const ProfileView = () => {
                 <button
                   type="button"
                   className={profileActionButtonClass}
-                  onClick={() => addArrayItem("skills", emptySkill)}
+                  onClick={() => openAddPage("skills")}
                 >
                   Add Skill
                 </button>
@@ -1037,9 +991,7 @@ const ProfileView = () => {
                 <button
                   type="button"
                   className={profileActionButtonClass}
-                  onClick={() =>
-                    addArrayItem("certifications", emptyCertification)
-                  }
+                  onClick={() => openAddPage("certifications")}
                 >
                   Add Certification
                 </button>

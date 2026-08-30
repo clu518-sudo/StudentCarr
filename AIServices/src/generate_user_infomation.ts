@@ -415,25 +415,25 @@ const mergeProfile = (
         current.preferences.availability,
       ),
     },
+    // Every section below is keyed on its *name* fields alone. Dates, role, and
+    // category are deliberately excluded: the same school, job, project, or
+    // skill comes back from a re-parse with those secondary fields worded or
+    // formatted differently, and keying on them kept both copies.
     education: uniqueByKey(
       [...extracted.education, ...current.education],
       (item) =>
-        `${normalizeText(item.school).toLowerCase()}|${normalizeText(item.degree).toLowerCase()}|${normalizeText(item.startDate).toLowerCase()}|${normalizeText(item.endDate).toLowerCase()}`,
+        `${normalizeText(item.school).toLowerCase()}|${normalizeText(item.degree).toLowerCase()}`,
     ),
     workExperience: uniqueByKey(
       [...extracted.workExperience, ...current.workExperience],
       (item) =>
-        `${normalizeText(item.company).toLowerCase()}|${normalizeText(item.title).toLowerCase()}|${normalizeText(item.startDate).toLowerCase()}|${normalizeText(item.endDate).toLowerCase()}`,
+        `${normalizeText(item.company).toLowerCase()}|${normalizeText(item.title).toLowerCase()}`,
     ),
-    projects: uniqueByKey(
-      [...extracted.projects, ...current.projects],
-      (item) =>
-        `${normalizeText(item.name).toLowerCase()}|${normalizeText(item.role).toLowerCase()}`,
+    projects: uniqueByKey([...extracted.projects, ...current.projects], (item) =>
+      normalizeText(item.name).toLowerCase(),
     ),
-    skills: uniqueByKey(
-      [...extracted.skills, ...current.skills],
-      (item) =>
-        `${normalizeText(item.name).toLowerCase()}|${normalizeText(item.category).toLowerCase()}`,
+    skills: uniqueByKey([...extracted.skills, ...current.skills], (item) =>
+      normalizeText(item.name).toLowerCase(),
     ).map((item) => ({
       ...item,
       yearsOfExperience:
@@ -441,9 +441,6 @@ const mergeProfile = (
           ? item.yearsOfExperience
           : undefined,
     })),
-    // Name alone identifies a certification: the same credential often comes
-    // back with a differently worded issuer or a missing date, and keying on
-    // those would keep both copies.
     certifications: uniqueByKey(
       [...extracted.certifications, ...current.certifications],
       (item) => normalizeText(item.name).toLowerCase(),

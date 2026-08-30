@@ -8,6 +8,7 @@ import React, {
   useState,
 } from "react";
 import { profileManagementApi } from "../lib/apiClient";
+import { dedupeManualProfile } from "../lib/profileEntries";
 import { useAuth } from "./AuthContext";
 
 const ProfileContext = createContext(null);
@@ -502,8 +503,14 @@ export const ProfileProvider = ({ children }) => {
               if (eventName === "completed") {
                 completedPayload = payload;
 
-                const generatedProfile = mergeManualProfile(
-                  payload?.result?.manualProfile || emptyProfile,
+                // Generation merges freshly parsed documents into the existing
+                // profile, so drop any entry whose name is already present
+                // rather than letting the same school / job / project / skill /
+                // certification be listed twice.
+                const generatedProfile = dedupeManualProfile(
+                  mergeManualProfile(
+                    payload?.result?.manualProfile || emptyProfile,
+                  ),
                 );
                 const generatedDocuments = Array.isArray(
                   payload?.result?.documents,
@@ -524,8 +531,8 @@ export const ProfileProvider = ({ children }) => {
         );
 
         if (completedPayload?.result?.manualProfile) {
-          const generatedProfile = mergeManualProfile(
-            completedPayload.result.manualProfile,
+          const generatedProfile = dedupeManualProfile(
+            mergeManualProfile(completedPayload.result.manualProfile),
           );
           const persistResult = await saveManualProfileData(generatedProfile, {
             successMessageText:
