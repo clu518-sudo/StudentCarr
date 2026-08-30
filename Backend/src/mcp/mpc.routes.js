@@ -1,17 +1,25 @@
 import { Router } from "express";
 import { requireMcpTokenAuth } from "../middleware/mcpTokenAuth.middleware.js";
-import { mcpDispatcher, mcpProfile } from "./mcp.controller.js";
+import {
+  mcpApplicationEmails,
+  mcpApplications,
+  mcpEmailDetail,
+  mcpProfile,
+} from "./mcp.controller.js";
 
 const mcpRoutes = Router();
 
 // all MCP endpoints use the short-lived scoped MCP token, not the sc_ API key
 mcpRoutes.use(requireMcpTokenAuth);
 
-// POST /api/mcp
-mcpRoutes.post("/", mcpDispatcher);
-
-// One route per tool from here on, so the message-tag dispatcher above does not
-// grow into a second hand-maintained router.
+// One route per tool, so no message-tag dispatcher grows into a second
+// hand-maintained router.
+// POST /api/mcp/applications
+mcpRoutes.post("/applications", mcpApplications);
+// POST /api/mcp/emails
+mcpRoutes.post("/emails", mcpApplicationEmails);
+// POST /api/mcp/emails/detail
+mcpRoutes.post("/emails/detail", mcpEmailDetail);
 // POST /api/mcp/profile
 mcpRoutes.post("/profile", mcpProfile);
 

@@ -4,12 +4,16 @@
 //   2) import it here and add it to the `tools` array
 // Nothing else needs to change.
 
-import * as processTrack from "./processTrack.js";
+import * as listApplications from "./listApplications.js";
+import * as listApplicationEmails from "./listApplicationEmails.js";
+import * as getEmailDetail from "./getEmailDetail.js";
 import * as getProfile from "./getProfile.js";
 // import * as myNextTool from "./myNextTool.js";
 
 const tools = [
-  processTrack,
+  listApplications,
+  listApplicationEmails,
+  getEmailDetail,
   getProfile,
   // nextTool
 ];

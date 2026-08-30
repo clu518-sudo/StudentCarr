@@ -163,6 +163,27 @@ const mapEmailListItem = (email) => ({
       : 0,
 });
 
+// Shape for the MCP tools: everything mapEmailDetail carries EXCEPT the message
+// body, which is raw HTML and would dominate the agent's context. `summary` is
+// nullable even though the sync always writes an intelligence row, so fall back
+// to the snippet rather than reintroducing the raw body.
+const mapEmailSummary = (email) => ({
+  id: email.id,
+  applicationId: email.applicationId,
+  sender: email.sender,
+  subject: email.subject,
+  date: toDisplayDate(email),
+  intent: email.intelligence?.intent || "unknown",
+  summary: email.intelligence?.summary || normalizeText(email.snippet),
+  companyName: email.intelligence?.companyName || "",
+  positionTitle: email.intelligence?.positionTitle || "",
+  contactEmail: email.intelligence?.contactEmail || "",
+  replyCount:
+    typeof email._count?.childReplies === "number"
+      ? email._count.childReplies
+      : 0,
+});
+
 const mapEmailThreadReply = (email, depth = 1) => ({
   id: email.id,
   parentEmailId: email.parentEmailId || null,
@@ -800,6 +821,80 @@ const listApplicationsForUser = async (userId) => {
   };
 };
 
+const EMAIL_SUMMARY_DEFAULT_LIMIT = 20;
+const EMAIL_SUMMARY_MAX_LIMIT = 50;
+
+// Counts only thread roots, so the number lines up with what
+// listEmailSummariesForUser actually returns.
+const listApplicationSummariesForUser = async (userId) => {
+  const applications = await prisma.progressApplication.findMany({
+    where: { userId },
+    orderBy: { lastUpdatedAt: "desc" },
+    include: {
+      _count: { select: { emails: { where: { parentEmailId: null } } } },
+    },
+  });
+
+  return {
+    applications: applications.map((application) => ({
+      ...mapApplicationRecord(application),
+      emailCount: application._count?.emails ?? 0,
+    })),
+  };
+};
+
+// listEmailsForApplication requires an applicationId; this serves the unfiltered
+// case too, in one query rather than a fan-out per application.
+const listEmailSummariesForUser = async (
+  userId,
+  { applicationId, intent, limit, cursor } = {},
+) => {
+  const take = Math.min(
+    Math.max(Number(limit) || EMAIL_SUMMARY_DEFAULT_LIMIT, 1),
+    EMAIL_SUMMARY_MAX_LIMIT,
+  );
+
+  if (applicationId) {
+    const application = await prisma.progressApplication.findFirst({
+      where: { id: applicationId, userId },
+      select: { id: true },
+    });
+    if (!application) {
+      throw createHttpError("Application not found", 404);
+    }
+  }
+
+  const rows = await prisma.progressEmail.findMany({
+    where: {
+      userId,
+      parentEmailId: null,
+      ...(applicationId ? { applicationId } : {}),
+      ...(intent ? { intelligence: { intent } } : {}),
+    },
+    include: {
+      intelligence: true,
+      _count: { select: { childReplies: true } },
+    },
+    // The trailing id makes the ordering total; cursor pagination silently skips
+    // or repeats rows without a unique tiebreaker.
+    orderBy: [
+      { receivedAt: "desc" },
+      { sentAt: "desc" },
+      { createdAt: "desc" },
+      { id: "asc" },
+    ],
+    take: take + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+  });
+
+  const page = rows.slice(0, take);
+
+  return {
+    emails: page.map(mapEmailSummary),
+    nextCursor: rows.length > take ? page[page.length - 1].id : null,
+  };
+};
+
 const deleteApplicationsForUser = async (userId, applicationIds) => {
   const uniqueApplicationIds = [
     ...new Set((applicationIds || []).filter(Boolean)),
@@ -1239,6 +1334,8 @@ export {
   getGmailConnectionStatusForUser,
   getInviteReplyDraftByEmailId,
   listApplicationsForUser,
+  listApplicationSummariesForUser,
   listEmailsForApplication,
+  listEmailSummariesForUser,
   syncProgressTrackingForUser,
 };
