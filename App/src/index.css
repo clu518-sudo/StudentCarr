@@ -764,7 +764,7 @@
   max-width: 90%;
   padding: 10px 10px;
   border-radius: 13px;
-  line-height: 0.85;
+  line-height: 1.5;
   font-size: 13px;
   font-family: 'Arial', Times, serif;
   white-space: pre-wrap;
@@ -787,16 +787,23 @@
 }
 
 /* Markdown content rendered inside a chat bubble ------------------------ */
+/* .sc-message sets white-space: pre-wrap for plain text, but react-markdown
+   emits literal "\n" text nodes between block elements — under pre-wrap those
+   render as extra blank lines. Markdown already carries its own structure, so
+   turn pre-wrap off here and let the margins below do the spacing. */
+.sc-md {
+  white-space: normal;
+}
 .sc-md p {
-  margin: 0 0 6px;
+  margin: 0 0 15px;
 }
 .sc-md ul,
 .sc-md ol {
-  margin: 0 0 6px;
+  margin: 0 0 4px;
   padding-left: 18px;
 }
 .sc-md li {
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 .sc-md p:last-child,
 .sc-md ul:last-child,
