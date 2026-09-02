@@ -183,6 +183,7 @@ const handleChatTurn = async (
   try {
     const payload = (await parseRequestBody(req)) as {
       message?: unknown;
+      history?: unknown;
       userId?: unknown;
       mcpToken?: unknown;
       maxSteps?: unknown;
@@ -195,6 +196,7 @@ const handleChatTurn = async (
 
     const result = await runChatTurn({
       message: payload.message,
+      history: payload.history,
       userId: payload.userId,
       mcpToken: payload.mcpToken,
       maxSteps: payload.maxSteps,

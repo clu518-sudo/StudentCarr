@@ -62,6 +62,7 @@ model User {
   progressReplies ProgressEmailReply[]
   apiKey          ApiKey[]
   llmKeys         UserLlmKey[]
+  chatThreads     ChatThread[]
 
   @@map("users")
 }
@@ -425,4 +426,33 @@ model ProgressEmailReply {
   @@index([userId, status])
   @@index([emailId, createdAt])
   @@map("progress_email_replies")
+}
+
+model ChatThread {
+  id        String        @id @default(uuid())
+  userId    String        @map("user_id")
+  title     String?
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  ChatMessage[]
+
+  @@index([userId, updatedAt])
+  @@map("chat_threads")
+}
+
+// Only human turns and final assistant text are ever written here. Tool calls
+// and tool results are deliberately never persisted: replayed into a later turn
+// they read as current facts and the model answers from them instead of
+// re-calling the tool.
+model ChatMessage {
+  id        Int        @id @default(autoincrement())
+  threadId  String     @map("thread_id")
+  role      String
+  content   String
+  createdAt DateTime   @default(now()) @map("created_at")
+  thread    ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, id])
+  @@map("chat_messages")
 }

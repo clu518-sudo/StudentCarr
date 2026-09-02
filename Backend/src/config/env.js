@@ -57,7 +57,8 @@ const env = {
   mcpTokenSecret:
     process.env.MCP_TOKEN_SECRET || "dev_mcp_token_secret_change_me",
   mcpTokenTtl: process.env.MCP_TOKEN_TTL || "2m",
-  chatMaxSteps: toNumber(process.env.CHAT_MAX_STEPS, 8),
+  chatMaxSteps: toNumber(process.env.CHAT_MAX_STEPS, 100),
+  chatHistoryTurns: toNumber(process.env.CHAT_HISTORY_TURNS, 10),
 };
 
 const isProduction = env.nodeEnv === "production";
