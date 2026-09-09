@@ -25,8 +25,14 @@ const QUICK_ACTIONS = [
   },
 ];
 
-const formatTime = () =>
-  new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+const GREETING =
+  "Hi! I'm your career assistant. Ask me about your profile, applications, skills, or interviews.";
+
+const formatTime = (value) =>
+  new Date(value ?? Date.now()).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
 let messageId = 0;
 const nextId = () => {
@@ -45,7 +51,7 @@ const CareerChatbot = ({
     {
       id: nextId(),
       role: "assistant",
-      text: "Hi! I'm your career assistant. Ask me about your profile, applications, skills, or interviews.",
+      text: GREETING,
       time: formatTime(),
     },
   ]);
@@ -55,6 +61,7 @@ const CareerChatbot = ({
   const messagesRef = useRef(null);
   const inputRef = useRef(null);
   const replyTimerRef = useRef(null);
+  const threadIdRef = useRef(null);
 
   useEffect(() => {
     if (messagesRef.current) {
@@ -71,11 +78,48 @@ const CareerChatbot = ({
     [],
   );
 
+  // Resume the most recent persisted thread so history survives a refresh.
+  useEffect(() => {
+    if (!accessToken) return undefined;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const response = await chatApi.history(accessToken);
+        const data = response?.data;
+        if (cancelled || !data?.threadId || !data.messages?.length) return;
+
+        threadIdRef.current = data.threadId;
+        setMessages((prev) => [
+          ...prev,
+          ...data.messages.map((entry) => ({
+            id: nextId(),
+            role: entry.role,
+            text: entry.content,
+            time: formatTime(entry.createdAt),
+          })),
+        ]);
+      } catch {
+        // A failed hydrate just means starting a fresh thread.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken]);
+
   // Single integration seam for a future AI backend. Today it returns a local
   // placeholder reply.
   const requestAssistantReply = async (userText) => {
     try {
-      const response = await chatApi.send({ message: userText }, accessToken);
+      const response = await chatApi.send(
+        { message: userText, threadId: threadIdRef.current || undefined },
+        accessToken,
+      );
+      if (response?.data?.threadId) {
+        threadIdRef.current = response.data.threadId;
+      }
       return response?.data?.reply ?? "Sorry, I didn't get a reply.";
     } catch (error) {
       return `Something went wrong: ${error.message || "please try again."}`;
@@ -111,6 +155,33 @@ const CareerChatbot = ({
     sendMessage(input);
   };
 
+  // TEMPORARY (Phase 7 testing aid): wipes the saved threads and resets the
+  // panel, so a multi-turn scenario can be re-run from a clean slate.
+  const handleClearHistory = async () => {
+    if (isThinking) return;
+    if (!window.confirm("Delete all saved chat history for this account?")) {
+      return;
+    }
+
+    try {
+      await chatApi.clearHistory(accessToken);
+      threadIdRef.current = null;
+      setMessages([
+        { id: nextId(), role: "assistant", text: GREETING, time: formatTime() },
+      ]);
+    } catch (error) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: nextId(),
+          role: "assistant",
+          text: `Could not clear history: ${error.message || "please try again."}`,
+          time: formatTime(),
+        },
+      ]);
+    }
+  };
+
   const handleQuickAction = (prompt) => {
     setInput(prompt);
     inputRef.current?.focus();
@@ -140,6 +211,18 @@ const CareerChatbot = ({
           </span>
           <span className="sc-chat-title-label">Career Chatbot</span>
           <div className="sc-chat-title-actions">
+            {/* TEMPORARY (Phase 7 testing aid) — remove with its API route.
+                Borrows .sc-chat-fold's styling rather than adding new CSS. */}
+            <button
+              type="button"
+              className="sc-chat-fold"
+              onClick={handleClearHistory}
+              disabled={isThinking}
+              aria-label="Delete saved chat history"
+              title="Delete saved chat history"
+            >
+              🗑
+            </button>
             <button
               type="button"
               className="sc-chat-fold"

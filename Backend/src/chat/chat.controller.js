@@ -7,6 +7,7 @@ import {
   loadRecentHistory,
   appendTurn,
   getLatestThreadWithMessages,
+  deleteChatHistory,
 } from "./chat.service.js"
 import env from "../config/env.js";
 import { success } from "zod";
@@ -84,4 +85,14 @@ const getChatHistory = async (req, res, next) => {
   }
 };
 
-export { sendChatMessage, getChatHistory };
+// TEMPORARY (Phase 7 testing aid): backs the "clear history" button.
+const clearChatHistory = async (req, res, next) => {
+  try {
+    await deleteChatHistory(req.user.id);
+    return res.json({ success: true, data: { cleared: true } });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export { sendChatMessage, getChatHistory, clearChatHistory };

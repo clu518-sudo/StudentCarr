@@ -70,4 +70,19 @@ const getLatestThreadWithMessages = async (userId) => {
   return { threadId: thread.id, messages: messages.reverse() };
 };
 
-export { resolveThread, loadRecentHistory, appendTurn, getLatestThreadWithMessages };
+// TEMPORARY (Phase 7 testing aid): wipes every thread belonging to one user.
+// Messages are deleted explicitly rather than left to the FK cascade so the
+// result does not depend on SQLite's foreign_keys pragma being enabled.
+const deleteChatHistory = (userId) =>
+  prisma.$transaction([
+    prisma.chatMessage.deleteMany({ where: { thread: { userId } } }),
+    prisma.chatThread.deleteMany({ where: { userId } }),
+  ]);
+
+export {
+  resolveThread,
+  loadRecentHistory,
+  appendTurn,
+  getLatestThreadWithMessages,
+  deleteChatHistory,
+};

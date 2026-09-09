@@ -288,6 +288,10 @@ export const apiKeysApi = {
 
 export const chatApi = {
   send: (body, token) => apiRequest("/chat", { method: "POST", body }, token),
+  history: (token) => apiRequest("/chat/history", { method: "GET" }, token),
+  // TEMPORARY (Phase 7 testing aid): wipes this user's saved threads.
+  clearHistory: (token) =>
+    apiRequest("/chat/history", { method: "DELETE" }, token),
 };
 
 // API client for the user's own saved LLM settings (name/url/key), configured
