@@ -15,7 +15,7 @@ import {
   syncProgressTrackingMailbox,
 } from "./progress_tracking_gmail.js";
 
-import { runChatTurn, ServiceError } from "./chat/agent.service.js"
+import { runChatTurn, runChatTurnStream, ServiceError } from "./chat/agent.service.js"
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = Number(process.env.LANGGRAPH_PORT || 10002);
@@ -213,6 +213,80 @@ const handleChatTurn = async (
   }
 };
 
+const writeSseHeaders = (res: http.ServerResponse) => {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+};
+
+const writeSseEvent = (
+  res: http.ServerResponse,
+  eventName: string,
+  payload: unknown = {},
+) => {
+  res.write(`event: ${eventName}\n`);
+  res.write(`data: ${JSON.stringify(payload)}\n\n`);
+};
+
+const handleChatStream = async (
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+) => {
+  let payload: {
+    message?: unknown;
+    history?: unknown;
+    userId?: unknown;
+    mcpToken?: unknown;
+    maxSteps?: unknown;
+    llmSettings?: unknown;
+  };
+
+  try {
+    payload = (await parseRequestBody(req)) as typeof payload;
+  } catch {
+    writeJson(res, 400, { success: false, error: "Invalid request body" });
+    return;
+  }
+
+  if (typeof payload?.message !== "string" || !payload.message.trim()) {
+    writeJson(res, 400, { success: false, error: "message is required" });
+    return;
+  }
+
+  writeSseHeaders(res);
+
+  let clientClosed = false;
+  req.on("aborted", () => {
+    clientClosed = true;
+  });
+
+  try {
+    for await (const streamEvent of runChatTurnStream({
+      message: payload.message,
+      history: payload.history,
+      userId: payload.userId,
+      mcpToken: payload.mcpToken,
+      maxSteps: payload.maxSteps,
+      llmSettings: payload.llmSettings,
+    })) {
+      if (clientClosed) break;
+      writeSseEvent(res, streamEvent.event, streamEvent.data);
+    }
+  } catch (error) {
+    if (!clientClosed) {
+      writeSseEvent(res, "error", {
+        error: error instanceof Error ? error.message : "Chat stream failed",
+      });
+    }
+  } finally {
+    if (!clientClosed) res.end();
+  }
+};
+
+
 // start the AI services here 
 export const startAiServer = (port = DEFAULT_PORT, host = DEFAULT_HOST) => {
   const server = http.createServer(async (req, res) => {
@@ -246,6 +320,10 @@ export const startAiServer = (port = DEFAULT_PORT, host = DEFAULT_HOST) => {
       return;
     }
 
+    if (req.method === "POST" && req.url === "/chat/stream") {
+      await handleChatStream(req, res);
+      return;
+    }
 
     writeJson(res, 404, { success: false, error: "Not found" });
   });

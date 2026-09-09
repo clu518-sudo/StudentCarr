@@ -781,9 +781,15 @@
   color: #ffffff;
   background: linear-gradient(135deg, #335db5, #426fd2);
 }
-.sc-message.typing {
+.sc-typing {
   color: var(--sc-muted);
   font-style: italic;
+}
+.sc-message-status {
+  color: var(--sc-muted);
+  font-style: italic;
+  font-size: 11.5px;
+  margin-bottom: 4px;
 }
 
 /* Markdown content rendered inside a chat bubble ------------------------ */

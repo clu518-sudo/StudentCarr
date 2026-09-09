@@ -292,6 +292,32 @@ export const chatApi = {
   // TEMPORARY (Phase 7 testing aid): wipes this user's saved threads.
   clearHistory: (token) =>
     apiRequest("/chat/history", { method: "DELETE" }, token),
+  // SSE turn: onEvent fires for "token" (incremental text), "tool_start"/
+  // "tool_end" (tool activity), and "completed" (final reply + threadId).
+  stream: async ({ message, threadId, onEvent = () => {}, signal }, token) => {
+    const response = await fetch(`${API_BASE_URL}/chat/stream`, {
+      method: "POST",
+      headers: buildHeaders(token),
+      credentials: "include",
+      body: JSON.stringify({ message, threadId }),
+      signal,
+    });
+
+    if (!response.ok) {
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch {
+        // Ignore parsing failure and use fallback message.
+      }
+      throw new Error(payload?.error || "Failed to start chat stream");
+    }
+
+    await streamSseResponse(response, {
+      onEvent,
+      errorEventMessage: "Chat stream failed",
+    });
+  },
 };
 
 // API client for the user's own saved LLM settings (name/url/key), configured

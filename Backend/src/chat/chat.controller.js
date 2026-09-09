@@ -1,7 +1,8 @@
 import { sendMessageSchema, validate } from "./chat.schemas.js";
-import { requestChatTurn } from "./aiServiceClient.js"
+import { requestChatTurn, requestChatTurnStream } from "./aiServiceClient.js"
 import { getDecryptedLlmKey } from "../llmSettings/llmSettings.service.js";
 import { signMcpToken } from "./mcpToken.js";
+import { initSseHeaders, sendSseEvent } from "../events/sse.js";
 import { 
   resolveThread,
   loadRecentHistory,
@@ -76,6 +77,94 @@ const sendChatMessage = async (req, res, next) => {
   }
 };
 
+const streamChatMessage = async (req, res, next) => {
+  let payload;
+  try {
+    payload = validate(sendMessageSchema, req.body || {});
+  } catch (error) {
+    if (error.name === "ZodError") {
+      return res.status(400).json({ success: false, error: formatZodError(error) });
+    }
+    return next(error);
+  }
+
+  let streamClosed = false;
+  req.on("aborted", () => {
+    streamClosed = true;
+  });
+
+  try {
+    const userLlmKey = await getDecryptedLlmKey({ userId: req.user.id });
+    if (!userLlmKey) {
+      return res.status(400).json({
+        success: false,
+        error: "Add an LLM setting before chatting.",
+      });
+    }
+
+    const llmSettings = {
+      apiKey: userLlmKey.apiKey,
+      model: userLlmKey.model || undefined,
+      baseUrl: userLlmKey.baseUrl || undefined,
+    };
+
+    const thread = await resolveThread({
+      userId: req.user.id,
+      threadId: payload.threadId,
+      firstMessage: payload.message,
+    });
+    const history = await loadRecentHistory(thread.id);
+
+    initSseHeaders(res);
+    res.on("close", () => {
+      streamClosed = true;
+    });
+
+    let replyText = "";
+
+    await requestChatTurnStream(
+      {
+        message: payload.message,
+        history,
+        userId: req.user.id,
+        mcpToken: signMcpToken(req.user.id),
+        maxSteps: env.chatMaxSteps,
+        llmSettings,
+      },
+      async ({ eventName, payload: eventPayload }) => {
+        if (streamClosed) return;
+
+        if (eventName === "completed") {
+          replyText = eventPayload?.reply || "";
+          return; // relayed below, once persisted, with threadId attached
+        }
+
+        sendSseEvent(res, eventName, eventPayload);
+      },
+    );
+
+    if (streamClosed) return;
+
+    await appendTurn({
+      threadId: thread.id,
+      userMessage: payload.message,
+      assistantReply: replyText,
+    });
+
+    sendSseEvent(res, "completed", { reply: replyText, threadId: thread.id });
+    res.end();
+  } catch (error) {
+    if (streamClosed) return;
+    if (!res.headersSent) {
+      return next(error);
+    }
+    sendSseEvent(res, "error", {
+      error: error.message || "Chat stream failed",
+    });
+    res.end();
+  }
+};
+
 const getChatHistory = async (req, res, next) => {
   try {
     const data = await getLatestThreadWithMessages(req.user.id);
@@ -95,4 +184,4 @@ const clearChatHistory = async (req, res, next) => {
   }
 };
 
-export { sendChatMessage, getChatHistory, clearChatHistory };
+export { sendChatMessage, streamChatMessage, getChatHistory, clearChatHistory };

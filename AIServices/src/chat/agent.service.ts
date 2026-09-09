@@ -177,4 +177,89 @@ export const runChatTurn = async ({
   return { reply };
 };
 
+type ChatStreamEvent =
+  | { event: "token"; data: { text: string } }
+  | { event: "tool_start"; data: { tool: string } }
+  | { event: "tool_end"; data: { tool: string } }
+  | { event: "completed"; data: { reply: string } };
+
+// Token-level variant of runChatTurn. Reuses the same validation, tool
+// loading, and agent construction, only the invocation differs.
+export const runChatTurnStream = async function* ({
+  message,
+  history,
+  userId,
+  mcpToken,
+  maxSteps,
+  llmSettings,
+}: {
+  message: string;
+  history?: unknown;
+  userId?: unknown;
+  mcpToken?: unknown;
+  maxSteps?: unknown;
+  llmSettings: unknown;
+}): AsyncGenerator<ChatStreamEvent> {
+  const parsedSettings = llmSettingsSchema.safeParse(llmSettings);
+  if (!parsedSettings.success) {
+    throw new ServiceError(
+      "No LLM configured for this account. Add one in Settings before chatting.",
+      400,
+    );
+  }
+
+  const parsedContext = mcpContextSchema.safeParse({ userId, mcpToken });
+  if (!parsedContext.success) {
+    throw new ServiceError("Chat turn is missing its scoped MCP token.", 400);
+  }
+
+  const tools = await loadTools(parsedContext.data);
+  const agent = buildAgent(parsedSettings.data, tools);
+
+  const parsedHistory = historySchema.safeParse(history);
+  const priorMessages = parsedHistory.success ? parsedHistory.data : [];
+
+  let replyText = "";
+
+  try {
+    const eventStream = agent.streamEvents(
+      { messages: buildMessages(priorMessages, message) },
+      { version: "v2", recursionLimit: recursionLimitFor(maxSteps) },
+    );
+
+    for await (const streamEvent of eventStream) {
+      if (streamEvent.event === "on_chat_model_stream") {
+        const chunk = streamEvent.data?.chunk as AIMessage | undefined;
+        const text = typeof chunk?.content === "string" ? chunk.content : "";
+        if (text) {
+          replyText += text;
+          yield { event: "token", data: { text } };
+        }
+        continue;
+      }
+
+      if (streamEvent.event === "on_tool_start") {
+        yield { event: "tool_start", data: { tool: streamEvent.name } };
+        continue;
+      }
+
+      if (streamEvent.event === "on_tool_end") {
+        yield { event: "tool_end", data: { tool: streamEvent.name } };
+        continue;
+      }
+    }
+  } catch (error) {
+    if (isRecursionLimitError(error)) {
+      throw new ServiceError(
+        "The assistant took too many steps on that request. Try asking something narrower.",
+        500,
+      );
+    }
+    throw error;
+  }
+
+  yield { event: "completed", data: { reply: replyText } };
+};
+
+
 export { ServiceError };

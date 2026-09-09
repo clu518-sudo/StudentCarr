@@ -6,12 +6,10 @@ import { chatApi } from "../../lib/apiClient";
 
 // Persistent right-side career assistant panel.
 //
-// There is no chatbot backend in the current codebase, so this panel is a
-// self-contained UI that produces a local placeholder reply. The message flow
-// is intentionally funnelled through a single `requestAssistantReply` function,
-// so a real backend can be wired in later by replacing only that one function
-// — no other UI changes required. This panel does not compute or send page
-// context; the assistant's context comes from MCP tools server-side instead.
+// sendMessage streams the reply token-by-token over SSE (chatApi.stream) and
+// patches the assistant's own message in place as events arrive. This panel
+// does not compute or send page context; the assistant's context comes from
+// MCP tools server-side instead.
 
 const QUICK_ACTIONS = [
   {
@@ -61,6 +59,7 @@ const CareerChatbot = ({
   const inputRef = useRef(null);
   const replyTimerRef = useRef(null);
   const threadIdRef = useRef(null);
+  const streamControllerRef = useRef(null);
 
   useEffect(() => {
     if (messagesRef.current) {
@@ -73,6 +72,15 @@ const CareerChatbot = ({
       if (replyTimerRef.current) {
         window.clearTimeout(replyTimerRef.current);
       }
+    },
+    [],
+  );
+
+  // Abort any in-flight stream on unmount so a late SSE event can't call
+  // setState after the panel is gone.
+  useEffect(
+    () => () => {
+      streamControllerRef.current?.abort();
     },
     [],
   );
@@ -108,21 +116,24 @@ const CareerChatbot = ({
     };
   }, [accessToken]);
 
-  // Single integration seam for a future AI backend. Today it returns a local
-  // placeholder reply.
-  const requestAssistantReply = async (userText) => {
-    try {
-      const response = await chatApi.send(
-        { message: userText, threadId: threadIdRef.current || undefined },
-        accessToken,
-      );
-      if (response?.data?.threadId) {
-        threadIdRef.current = response.data.threadId;
-      }
-      return response?.data?.reply ?? "Sorry, I didn't get a reply.";
-    } catch (error) {
-      return `Something went wrong: ${error.message || "please try again."}`;
-    }
+  const TOOL_STATUS_LABEL = {
+    list_applications: "Checking your applications…",
+    list_application_emails: "Checking your application emails…",
+    get_email_detail: "Reading that email…",
+    get_user_profile: "Checking your profile…",
+  };
+
+  const patchMessage = (id, patch) => {
+    setMessages((prev) =>
+      prev.map((message) =>
+        message.id === id
+          ? {
+              ...message,
+              ...(typeof patch === "function" ? patch(message) : patch),
+            }
+          : message,
+      ),
+    );
   };
 
   const sendMessage = async (rawText) => {
@@ -138,14 +149,75 @@ const CareerChatbot = ({
     setInput("");
     setIsThinking(true);
 
+    const assistantId = nextId();
+    setMessages((prev) => [
+      ...prev,
+      { id: assistantId, role: "assistant", text: "", status: null, time: formatTime() },
+    ]);
+
+    const controller = new AbortController();
+    streamControllerRef.current = controller;
+
     try {
-      const reply = await requestAssistantReply(text);
-      setMessages((prev) => [
-        ...prev,
-        { id: nextId(), role: "assistant", text: reply, time: formatTime() },
-      ]);
+      await chatApi.stream(
+        {
+          message: text,
+          threadId: threadIdRef.current || undefined,
+          signal: controller.signal,
+          onEvent: (eventName, payload) => {
+            if (eventName === "token") {
+              if (payload?.text) {
+                patchMessage(assistantId, (message) => ({
+                  text: message.text + payload.text,
+                  status: null,
+                }));
+              }
+              return;
+            }
+
+            if (eventName === "tool_start") {
+              patchMessage(assistantId, {
+                status: TOOL_STATUS_LABEL[payload?.tool] || "Using a tool…",
+              });
+              return;
+            }
+
+            if (eventName === "tool_end") {
+              patchMessage(assistantId, { status: null });
+              return;
+            }
+
+            if (eventName === "completed") {
+              if (payload?.threadId) {
+                threadIdRef.current = payload.threadId;
+              }
+              patchMessage(assistantId, {
+                text: payload?.reply ?? "",
+                status: null,
+              });
+              return;
+            }
+
+            if (eventName === "error") {
+              patchMessage(assistantId, {
+                text: `Something went wrong: ${payload?.error || "please try again."}`,
+                status: null,
+              });
+            }
+          },
+        },
+        accessToken,
+      );
+    } catch (error) {
+      if (error.name !== "AbortError") {
+        patchMessage(assistantId, {
+          text: `Something went wrong: ${error.message || "please try again."}`,
+          status: null,
+        });
+      }
     } finally {
       setIsThinking(false);
+      streamControllerRef.current = null;
     }
   };
 
@@ -246,14 +318,18 @@ const CareerChatbot = ({
       <div className="sc-messages" ref={messagesRef}>
         {messages.map((message) => (
           <div key={message.id} className={`sc-message ${message.role}`}>
+            {message.status && (
+              <div className="sc-message-status">{message.status}</div>
+            )}
             <div className="sc-md">
-              <Markdown remarkPlugins={[remarkGfm]}>{message.text}</Markdown>
+              {message.role === "assistant" && !message.text && !message.status ? (
+                <span className="sc-typing">Thinking…</span>
+              ) : (
+                <Markdown remarkPlugins={[remarkGfm]}>{message.text}</Markdown>
+              )}
             </div>
           </div>
         ))}
-        {isThinking && (
-          <div className="sc-message assistant typing">Assistant is typing…</div>
-        )}
       </div>
 
       <div className="sc-quick-actions">
