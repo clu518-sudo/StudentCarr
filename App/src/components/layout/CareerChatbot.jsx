@@ -14,14 +14,13 @@ import { chatApi } from "../../lib/apiClient";
 // context; the assistant's context comes from MCP tools server-side instead.
 
 const QUICK_ACTIONS = [
-  { label: "Improve my resume", prompt: "Help me improve my resume." },
   {
-    label: "Draft a follow-up",
-    prompt: "Draft a follow-up email for my application.",
+    label: "summarize my profile and recommend some relevant job types",
+    prompt: "summarize my profile and recommend some relevant job types",
   },
   {
-    label: "Practice interview",
-    prompt: "Start a practice interview with me.",
+    label: "How are my applications progressing?",
+    prompt: "How are my applications progressing?",
   },
 ];
 
@@ -183,8 +182,7 @@ const CareerChatbot = ({
   };
 
   const handleQuickAction = (prompt) => {
-    setInput(prompt);
-    inputRef.current?.focus();
+    sendMessage(prompt);
   };
 
   return (
