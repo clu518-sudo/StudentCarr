@@ -1,11 +1,13 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { getSectionMeta } from '../../lib/navigation';
 
-// Workspace top bar for the dark app shell. Preserves the original entry point
-// to the MCP / Claude Desktop setup page, the user identity chip, and logout.
+// Workspace top bar for the dark app shell: the user identity chip and logout.
 // Adds a chat toggle used to open the assistant drawer on smaller screens.
+// The MCP / Claude Desktop setup entry point was unlinked here per
+// MCP_CHATBOT plan §10 (retired in favor of the in-app chatbot) — the route
+// and backend are kept, just no longer reachable from navigation.
 const Header = ({ onToggleChat = () => {} }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
@@ -20,16 +22,6 @@ const Header = ({ onToggleChat = () => {} }) => {
       <div className="sc-topbar-title">{sectionMeta.label}</div>
 
       <div className="sc-topbar-actions">
-        {/* Top-bar entry to the MCP / Claude Desktop setup page. Visible to all
-            authenticated users — the destination page itself enforces the
-            "Gmail must be connected first" gate. */}
-        <Link to="/mcp" className="sc-btn">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-          <span>Connect to Claude Desktop</span>
-        </Link>
-
         {/* User identity chip */}
         <div className="flex items-center" style={{ gap: '10px' }}>
           <div className="sc-avatar" style={{ width: '34px', height: '34px' }}>

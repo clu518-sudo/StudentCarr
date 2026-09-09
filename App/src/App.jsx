@@ -24,7 +24,6 @@ import ResumeBuilderView from "./components/applications/ResumeBuilderView";
 import ApplicationAutomationView from "./components/applications/ApplicationAutomationView";
 import AIInterviewAssistantView from "./components/interview/AIInterviewAssistantView";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
-import McpSetupView from "./components/mcp/McpSetupView";
 import SettingsView from "./components/settings/SettingsView";
 
 function App() {
@@ -59,7 +58,10 @@ function App() {
                   />
                   <Route path="jobs" element={<JobsView />} />
                   <Route path="progress" element={<ProgressView />} />
-                  <Route path="mcp" element={<McpSetupView />} />
+                  {/* /mcp (McpSetupView, Claude Desktop setup) unlinked per
+                      MCP_CHATBOT plan §10 — retired in favor of the in-app
+                      chatbot. Component and backend routes are kept, not
+                      deleted, in case Claude Desktop support returns. */}
                   <Route path="settings" element={<SettingsView />} />
 
                   {/* Skills Management with nested routes */}
