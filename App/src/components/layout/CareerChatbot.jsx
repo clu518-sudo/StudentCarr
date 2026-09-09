@@ -282,10 +282,13 @@ const CareerChatbot = ({
           <span className="sc-chat-title-label">Career Chatbot</span>
           <div className="sc-chat-title-actions">
             {/* TEMPORARY (Phase 7 testing aid) — remove with its API route.
-                Borrows .sc-chat-fold's styling rather than adding new CSS. */}
+                .sc-chat-delete mirrors .sc-chat-fold's look but isn't
+                subject to the workspace-collapsed pointer-events: none
+                rule that targets .sc-chat-fold — this button must stay
+                clickable whenever the workspace is folded. */}
             <button
               type="button"
-              className="sc-chat-fold"
+              className="sc-chat-delete"
               onClick={handleClearHistory}
               disabled={isThinking}
               aria-label="Delete saved chat history"

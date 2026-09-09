@@ -733,7 +733,8 @@
   color: var(--sc-muted);
   margin: 0;
 }
-.sc-chat-fold {
+.sc-chat-fold,
+.sc-chat-delete {
   background: transparent;
   border: 1px solid #31445e;
   border-radius: 8px;
@@ -747,10 +748,15 @@
   flex-shrink: 0;
   transition: border-color 0.2s, color 0.2s, background 0.2s;
 }
-.sc-chat-fold:hover {
+.sc-chat-fold:hover,
+.sc-chat-delete:hover {
   border-color: #587db2;
   color: #ffffff;
   background: #16273f;
+}
+.sc-chat-delete:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 .sc-messages {
   padding: 18px;
