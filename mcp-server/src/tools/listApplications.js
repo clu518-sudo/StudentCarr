@@ -13,5 +13,10 @@ export const definition = {
 
 export const handler = async (args, context = {}) =>
   toMcpResult(
-    await callStudentCarr("/api/mcp/applications", {}, context.authHeader),
+    await callStudentCarr(
+      "/api/mcp/applications",
+      {},
+      context.authHeader,
+      context.requestId,
+    ),
   );

@@ -11,6 +11,6 @@ const router = Router();
 router.post("/", sendChatMessage);
 router.post("/stream", streamChatMessage);
 router.get("/history", getChatHistory);
-router.delete("/history", clearChatHistory); // TEMPORARY (Phase 7 testing aid)
+router.delete("/history", clearChatHistory);
 
 export default router;

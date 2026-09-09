@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { sendMessageSchema, validate } from "./chat.schemas.js";
 import { requestChatTurn, requestChatTurnStream } from "./aiServiceClient.js"
 import { getDecryptedLlmKey } from "../llmSettings/llmSettings.service.js";
@@ -22,8 +23,10 @@ const formatZodError = (error) => {
 };
 
 const sendChatMessage = async (req, res, next) => {
+  const requestId = randomUUID();
   try {
     const payload = validate(sendMessageSchema, req.body || {});
+    console.log(`[chat:${requestId}] turn start user=${req.user.id}`);
 
     const userLlmKey = await getDecryptedLlmKey({ userId: req.user.id });
     if (!userLlmKey) {
@@ -48,14 +51,17 @@ const sendChatMessage = async (req, res, next) => {
     const history = await loadRecentHistory(thread.id);
     
     // Minted per turn from the verified session, never from client input.
-    const result = await requestChatTurn({
-      message: payload.message,
-      history,
-      userId: req.user.id,
-      mcpToken: signMcpToken(req.user.id),
-      maxSteps: env.chatMaxSteps,
-      llmSettings,
-    });
+    const result = await requestChatTurn(
+      {
+        message: payload.message,
+        history,
+        userId: req.user.id,
+        mcpToken: signMcpToken(req.user.id),
+        maxSteps: env.chatMaxSteps,
+        llmSettings,
+      },
+      { requestId },
+    );
 
     // AIServices returns only the final text, so tool calls and tool results
     // cannot enter the store even by accident.
@@ -65,11 +71,13 @@ const sendChatMessage = async (req, res, next) => {
       assistantReply: result.reply,
     });
 
+    console.log(`[chat:${requestId}] turn complete user=${req.user.id}`);
     return res.json({
       success: true,
       data: { reply: result.reply, threadId: thread.id },
     });
   } catch (error) {
+    console.error(`[chat:${requestId}] turn failed user=${req.user.id}:`, error.message);
     if (error.name === "ZodError") {
       return res.status(400).json({ success: false, error: formatZodError(error) });
     }
@@ -78,9 +86,11 @@ const sendChatMessage = async (req, res, next) => {
 };
 
 const streamChatMessage = async (req, res, next) => {
+  const requestId = randomUUID();
   let payload;
   try {
     payload = validate(sendMessageSchema, req.body || {});
+    console.log(`[chat:${requestId}] stream start user=${req.user.id}`);
   } catch (error) {
     if (error.name === "ZodError") {
       return res.status(400).json({ success: false, error: formatZodError(error) });
@@ -141,6 +151,7 @@ const streamChatMessage = async (req, res, next) => {
 
         sendSseEvent(res, eventName, eventPayload);
       },
+      { requestId },
     );
 
     if (streamClosed) return;
@@ -151,9 +162,11 @@ const streamChatMessage = async (req, res, next) => {
       assistantReply: replyText,
     });
 
+    console.log(`[chat:${requestId}] stream complete user=${req.user.id}`);
     sendSseEvent(res, "completed", { reply: replyText, threadId: thread.id });
     res.end();
   } catch (error) {
+    console.error(`[chat:${requestId}] stream failed user=${req.user.id}:`, error.message);
     if (streamClosed) return;
     if (!res.headersSent) {
       return next(error);
@@ -174,7 +187,7 @@ const getChatHistory = async (req, res, next) => {
   }
 };
 
-// TEMPORARY (Phase 7 testing aid): backs the "clear history" button.
+// Backs the "clear history" button — starts a fresh thread on the user's next message.
 const clearChatHistory = async (req, res, next) => {
   try {
     await deleteChatHistory(req.user.id);

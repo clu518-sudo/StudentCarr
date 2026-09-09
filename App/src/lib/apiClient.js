@@ -289,7 +289,7 @@ export const apiKeysApi = {
 export const chatApi = {
   send: (body, token) => apiRequest("/chat", { method: "POST", body }, token),
   history: (token) => apiRequest("/chat/history", { method: "GET" }, token),
-  // TEMPORARY (Phase 7 testing aid): wipes this user's saved threads.
+  // Wipes this user's saved threads — backs the "clear history" button.
   clearHistory: (token) =>
     apiRequest("/chat/history", { method: "DELETE" }, token),
   // SSE turn: onEvent fires for "token" (incremental text), "tool_start"/

@@ -70,7 +70,7 @@ const getLatestThreadWithMessages = async (userId) => {
   return { threadId: thread.id, messages: messages.reverse() };
 };
 
-// TEMPORARY (Phase 7 testing aid): wipes every thread belonging to one user.
+// Wipes every thread belonging to one user — backs the "clear history" button.
 // Messages are deleted explicitly rather than left to the FK cascade so the
 // result does not depend on SQLite's foreign_keys pragma being enabled.
 const deleteChatHistory = (userId) =>

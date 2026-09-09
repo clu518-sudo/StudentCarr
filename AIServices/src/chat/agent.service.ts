@@ -8,6 +8,13 @@ const OPENAI_TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 45000);
 const OPENAI_MAX_RETRIES = Number(process.env.OPENAI_MAX_RETRIES || 2);
 const DEFAULT_MODEL = "gpt-4.1-mini";
 const DEFAULT_MAX_STEPS = Number(process.env.CHAT_MAX_STEPS || 8);
+// Overall wall-clock cap on one turn's model+tools loop — recursionLimit caps
+// step *count*, this catches a single step (e.g. a hung MCP connection)
+// stalling indefinitely, which recursionLimit alone would never trip on.
+const CHAT_TURN_TIMEOUT_MS = Number(process.env.CHAT_TURN_TIMEOUT_MS || 60000);
+// Separate, shorter cap on just connecting to mcp-server and listing tools,
+// since that failure mode (server down/unreachable) should surface fast.
+const MCP_TOOLS_TIMEOUT_MS = Number(process.env.MCP_TOOLS_TIMEOUT_MS || 10000);
 
 const SYSTEM_PROMPT =
   "You are the StudentCarr career assistant. StudentCarr helps students " +
@@ -91,9 +98,26 @@ const buildAgent = (
     systemPrompt: SYSTEM_PROMPT,
   });
 
+class TimeoutError extends Error {}
+
+const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> =>
+  new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new TimeoutError(`Timed out after ${ms}ms`)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+
 const loadTools = async (mcpContext: McpContext) => {
   try {
-    return await getMcpTools(mcpContext);
+    return await withTimeout(getMcpTools(mcpContext), MCP_TOOLS_TIMEOUT_MS);
   } catch (error) {
     console.error("[chat] Failed to load MCP tools:", error);
     throw new ServiceError(
@@ -154,15 +178,24 @@ export const runChatTurn = async ({
 
   let result;
   try {
-    result = await agent.invoke(
-      { messages: buildMessages(priorMessages, message) },
-      { recursionLimit: recursionLimitFor(maxSteps) },
+    result = await withTimeout(
+      agent.invoke(
+        { messages: buildMessages(priorMessages, message) },
+        { recursionLimit: recursionLimitFor(maxSteps) },
+      ),
+      CHAT_TURN_TIMEOUT_MS,
     );
   } catch (error) {
     if (isRecursionLimitError(error)) {
       throw new ServiceError(
         "The assistant took too many steps on that request. Try asking something narrower.",
         500,
+      );
+    }
+    if (error instanceof TimeoutError) {
+      throw new ServiceError(
+        "The assistant took too long to respond. Please try again.",
+        504,
       );
     }
     throw error;
@@ -226,39 +259,59 @@ export const runChatTurnStream = async function* ({
       { messages: buildMessages(priorMessages, message) },
       { version: "v2", recursionLimit: recursionLimitFor(maxSteps) },
     );
+    const iterator = eventStream[Symbol.asyncIterator]();
 
-    for await (const streamEvent of eventStream) {
-      if (streamEvent.event === "on_chat_model_stream") {
-        const chunk = streamEvent.data?.chunk as AIMessage | undefined;
-        const text = typeof chunk?.content === "string" ? chunk.content : "";
-        if (text) {
-          replyText += text;
-          yield { event: "token", data: { text } };
+    try {
+      // A fixed overall cap doesn't fit progressive output, so this resets on
+      // every yielded event and only fires on silence between them (mirrors
+      // Backend's idle timeout on the Backend<-AIServices leg of the stream).
+      while (true) {
+        const next = await withTimeout(iterator.next(), CHAT_TURN_TIMEOUT_MS);
+        if (next.done) break;
+        const streamEvent = next.value;
+        if (streamEvent.event === "on_chat_model_stream") {
+          const chunk = streamEvent.data?.chunk as AIMessage | undefined;
+          const text = typeof chunk?.content === "string" ? chunk.content : "";
+          if (text) {
+            replyText += text;
+            yield { event: "token", data: { text } };
+          }
+          continue;
         }
-        continue;
-      }
 
-      if (streamEvent.event === "on_tool_start") {
-        yield {
-          event: "tool_start",
-          data: { tool: streamEvent.name, runId: streamEvent.run_id },
-        };
-        continue;
-      }
+        if (streamEvent.event === "on_tool_start") {
+          yield {
+            event: "tool_start",
+            data: { tool: streamEvent.name, runId: streamEvent.run_id },
+          };
+          continue;
+        }
 
-      if (streamEvent.event === "on_tool_end") {
-        yield {
-          event: "tool_end",
-          data: { tool: streamEvent.name, runId: streamEvent.run_id },
-        };
-        continue;
+        if (streamEvent.event === "on_tool_end") {
+          yield {
+            event: "tool_end",
+            data: { tool: streamEvent.name, runId: streamEvent.run_id },
+          };
+          continue;
+        }
       }
+    } catch (error) {
+      // On a timeout the underlying stream is still running — signal it to
+      // stop rather than leaving it to complete unobserved in the background.
+      await iterator.return?.().catch(() => {});
+      throw error;
     }
   } catch (error) {
     if (isRecursionLimitError(error)) {
       throw new ServiceError(
         "The assistant took too many steps on that request. Try asking something narrower.",
         500,
+      );
+    }
+    if (error instanceof TimeoutError) {
+      throw new ServiceError(
+        "The assistant went quiet for too long. Please try again.",
+        504,
       );
     }
     throw error;

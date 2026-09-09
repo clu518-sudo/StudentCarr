@@ -1063,6 +1063,36 @@ export const generateInviteReplyDraft = async (input: unknown) => {
   return { draftText };
 };
 
+// APPROVAL-GATE PROPOSAL (not yet built — MCP_CHATBOT plan Phase 9):
+// this is the first place the pattern will be needed once sendInviteReply
+// (or any future side-effecting tool: rescheduling, withdrawing an
+// application, deleting data) is exposed to the chat agent as an MCP tool.
+// The chat catalog today is deliberately read-only (see mcp-server/src/tools),
+// so nothing currently calls this path from the agent loop.
+//
+// Proposed shape, once one ships:
+//   1. The tool's handler does NOT perform the side effect. It returns a
+//      structured "pending action" (action type + rendered human-readable
+//      summary of what would happen) as its tool result content.
+//   2. The agent surfaces that summary to the user as plain text and stops —
+//      it must not immediately chain into a second tool call that executes
+//      the action. This needs either a system-prompt rule the model follows
+//      ("never execute a pending action without the user's next message
+//      being an explicit yes"), or better, splitting the capability into two
+//      tools: propose_reply (read-only, safe to auto-call) and send_reply
+//      (side-effecting), where send_reply's Backend route rejects the call
+//      unless a short-lived one-time "approval token" — minted by Backend
+//      when it rendered the pending action to the user, not by the model —
+//      is echoed back. This makes the approval a real capability check
+//      instead of a prompt instruction the model could ignore or hallucinate
+//      satisfying.
+//   3. The approval token is scoped like the MCP token (Phase 2): signed,
+//      short TTL, bound to the specific pending action's content hash, so it
+//      can't be replayed against a different action or reused twice.
+//   4. Frontend-wise, CareerChatbot would need a distinct rendering for a
+//      pending action (e.g. a confirm/cancel affordance) rather than plain
+//      text, and a way to send the approval back as the next turn's message.
+// Deliberately not implemented here; this is the proposal Phase 9 asked for.
 export const sendInviteReply = async (input: unknown) => {
   const payload = sendReplyRequestSchema.parse(input);
   const gmail = buildGmailClient(payload.gmail.accessToken);

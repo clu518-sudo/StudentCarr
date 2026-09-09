@@ -241,8 +241,7 @@ const CareerChatbot = ({
     sendMessage(input);
   };
 
-  // TEMPORARY (Phase 7 testing aid): wipes the saved threads and resets the
-  // panel, so a multi-turn scenario can be re-run from a clean slate.
+  // Wipes the saved threads and resets the panel to a clean slate.
   const handleClearHistory = async () => {
     if (isThinking) return;
     if (!window.confirm("Delete all saved chat history for this account?")) {
@@ -296,8 +295,7 @@ const CareerChatbot = ({
           </span>
           <span className="sc-chat-title-label">Career Chatbot</span>
           <div className="sc-chat-title-actions">
-            {/* TEMPORARY (Phase 7 testing aid) — remove with its API route.
-                .sc-chat-delete mirrors .sc-chat-fold's look but isn't
+            {/* .sc-chat-delete mirrors .sc-chat-fold's look but isn't
                 subject to the workspace-collapsed pointer-events: none
                 rule that targets .sc-chat-fold — this button must stay
                 clickable whenever the workspace is folded. */}

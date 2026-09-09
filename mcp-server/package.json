@@ -15,7 +15,8 @@
     "dev": "node --watch src/index.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.4"
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "undici": "^8.10.2"
   },
   "license": "ISC"
 }

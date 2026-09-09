@@ -13,6 +13,11 @@ export const definition = {
 
 export const handler = async (args, context = {}) =>
   toMcpTextResult(
-    await callStudentCarr("/api/mcp/profile", {}, context.authHeader),
+    await callStudentCarr(
+      "/api/mcp/profile",
+      {},
+      context.authHeader,
+      context.requestId,
+    ),
     (data) => data?.profileText,
   );

@@ -2,6 +2,7 @@
 // Centralizes auth, base URL, and status-code -> tool-error mapping
 
 const DEFAULT_API_URL = "http://127.0.0.1:10001";
+const REQUEST_TIMEOUT_MS = Number(process.env.STUDENTCARR_API_TIMEOUT_MS || 15000);
 
 const buildEndpoint = (path) => {
   const base = (process.env.STUDENTCARR_API_URL || DEFAULT_API_URL).replace(
@@ -12,8 +13,15 @@ const buildEndpoint = (path) => {
 };
 
 // Returns { ok: true, data } or { ok: false, errorMessage }. Never throws.
-export const callStudentCarr = async (path, body, authHeader) => {
+// requestId is this MCP request's own id (see http.js) — it can't be tied
+// back to the originating chat turn 1:1 (AIServices caches MCP clients per
+// user, so headers are fixed at construction, not per call), but it does
+// link this Backend REST call to the mcp-server log line that issued it.
+export const callStudentCarr = async (path, body, authHeader, requestId) => {
   const endpoint = buildEndpoint(path);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
   let response;
   try {
     response = await fetch(endpoint, {
@@ -21,14 +29,24 @@ export const callStudentCarr = async (path, body, authHeader) => {
       headers: {
         "Content-Type": "application/json",
         ...(authHeader ? { Authorization: authHeader } : {}),
+        ...(requestId ? { "X-Request-Id": requestId } : {}),
       },
       body: JSON.stringify(body),
+      signal: controller.signal,
     });
   } catch (err) {
+    if (err?.name === "AbortError") {
+      return {
+        ok: false,
+        errorMessage: `StudentCarr at ${endpoint} did not respond within ${REQUEST_TIMEOUT_MS}ms. Try again.`,
+      };
+    }
     return {
       ok: false,
       errorMessage: `Network error contacting StudentCarr at ${endpoint}. Check STUDENTCARR_API_URL and your connection, then retry. (${err?.message || err})`,
     };
+  } finally {
+    clearTimeout(timer);
   }
 
   let payload = null;

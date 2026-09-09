@@ -1,4 +1,5 @@
 import http from "node:http";
+import { randomUUID } from "node:crypto";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { buildServer } from "./server.js";
 
@@ -19,7 +20,8 @@ const methodNotAllowed = (res) => {
 };
 
 const handleMcpRequest = async (req, res) => {
-  const server = buildServer();
+  const requestId = randomUUID();
+  const server = buildServer(requestId);
   try {
     // sessionIdGenerator: undefined => stateless mode. No session ID is ever
     // issued or checked, so any replica can handle any request.

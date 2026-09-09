@@ -10,19 +10,39 @@ const createHttpError = (message, statusCode = 500) => {
   return error;
 };
 
-const requestChatTurn = async (payload) => {
+const isAbortError = (error) => error?.name === "AbortError";
+
+const requestChatTurn = async (payload, { requestId } = {}) => {
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(),
+    env.chatUpstreamTimeoutMs,
+  );
+
   let response;
   try {
     response = await fetch(`${AI_BASE_URL}/chat/turn`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(requestId ? { "X-Request-Id": requestId } : {}),
+      },
       body: JSON.stringify(payload),
+      signal: controller.signal,
     });
   } catch (error) {
+    if (isAbortError(error)) {
+      throw createHttpError(
+        "The AI chat service took too long to respond. Please try again.",
+        504,
+      );
+    }
     throw createHttpError(
       "Unable to reach the AI chat service. Make sure AIServices is running.",
       502,
     );
+  } finally {
+    clearTimeout(timer);
   }
 
   const responseBody = await response.json().catch(() => ({}));
@@ -63,38 +83,56 @@ const parseSseFrame = (raw) => {
 
 // Reads AIServices's SSE response and re-emits each frame via onFrame,
 // rather than buffering the whole reply, mirrors App/src/lib/sseClient.js
-// on the server side.
-const readSseFrames = async (response, onFrame) => {
+// on the server side. An overall timeout doesn't fit a progressive stream,
+// so idleTimeoutMs instead resets on every frame and only fires on silence.
+const readSseFrames = async (response, onFrame, idleTimeoutMs) => {
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let idleTimer;
 
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
+  const resetIdleTimer = () => {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      reader.cancel().catch(() => {});
+    }, idleTimeoutMs);
+  };
 
-    buffer += decoder.decode(value, { stream: true });
-    const frames = buffer.split("\n\n");
-    buffer = frames.pop() || "";
+  try {
+    resetIdleTimer();
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      resetIdleTimer();
 
-    for (const frame of frames) {
-      const parsed = parseSseFrame(frame);
+      buffer += decoder.decode(value, { stream: true });
+      const frames = buffer.split("\n\n");
+      buffer = frames.pop() || "";
+
+      for (const frame of frames) {
+        const parsed = parseSseFrame(frame);
+        if (parsed) await onFrame(parsed);
+      }
+    }
+
+    if (buffer.trim()) {
+      const parsed = parseSseFrame(buffer);
       if (parsed) await onFrame(parsed);
     }
-  }
-
-  if (buffer.trim()) {
-    const parsed = parseSseFrame(buffer);
-    if (parsed) await onFrame(parsed);
+  } finally {
+    clearTimeout(idleTimer);
   }
 };
 
-const requestChatTurnStream = async (payload, onFrame) => {
+const requestChatTurnStream = async (payload, onFrame, { requestId } = {}) => {
   let response;
   try {
     response = await fetch(`${AI_BASE_URL}/chat/stream`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(requestId ? { "X-Request-Id": requestId } : {}),
+      },
       body: JSON.stringify(payload),
     });
   } catch (error) {
@@ -112,7 +150,7 @@ const requestChatTurnStream = async (payload, onFrame) => {
     );
   }
 
-  await readSseFrames(response, onFrame);
+  await readSseFrames(response, onFrame, env.chatStreamIdleTimeoutMs);
 };
 
 export { requestChatTurn, requestChatTurnStream };

@@ -23,6 +23,10 @@ const formatZodError = (error) => {
 // them stays scoped by userId in pt.service.js, so a guessed id cannot reach
 // another user's row.
 const withUser = (run) => async (req, res, next) => {
+  const requestId = req.headers["x-request-id"];
+  if (requestId) {
+    console.log(`[mcp:${requestId}] ${req.method} ${req.originalUrl} user=${req.user.id}`);
+  }
   try {
     return res.json({ success: true, data: await run(req) });
   } catch (error) {

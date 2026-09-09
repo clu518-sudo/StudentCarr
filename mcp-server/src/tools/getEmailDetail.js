@@ -24,5 +24,6 @@ export const handler = async (args = {}, context = {}) =>
       "/api/mcp/emails/detail",
       { emailId: args?.emailId },
       context.authHeader,
+      context.requestId,
     ),
   );
