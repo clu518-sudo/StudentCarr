@@ -179,8 +179,8 @@ export const runChatTurn = async ({
 
 type ChatStreamEvent =
   | { event: "token"; data: { text: string } }
-  | { event: "tool_start"; data: { tool: string } }
-  | { event: "tool_end"; data: { tool: string } }
+  | { event: "tool_start"; data: { tool: string; runId: string } }
+  | { event: "tool_end"; data: { tool: string; runId: string } }
   | { event: "completed"; data: { reply: string } };
 
 // Token-level variant of runChatTurn. Reuses the same validation, tool
@@ -239,12 +239,18 @@ export const runChatTurnStream = async function* ({
       }
 
       if (streamEvent.event === "on_tool_start") {
-        yield { event: "tool_start", data: { tool: streamEvent.name } };
+        yield {
+          event: "tool_start",
+          data: { tool: streamEvent.name, runId: streamEvent.run_id },
+        };
         continue;
       }
 
       if (streamEvent.event === "on_tool_end") {
-        yield { event: "tool_end", data: { tool: streamEvent.name } };
+        yield {
+          event: "tool_end",
+          data: { tool: streamEvent.name, runId: streamEvent.run_id },
+        };
         continue;
       }
     }

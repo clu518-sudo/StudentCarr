@@ -791,11 +791,27 @@
   color: var(--sc-muted);
   font-style: italic;
 }
-.sc-message-status {
+.sc-tool-log {
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #24354f;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.sc-tool-log-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: var(--sc-muted);
-  font-style: italic;
   font-size: 11.5px;
-  margin-bottom: 4px;
+  font-style: italic;
+}
+.sc-tool-log-line.done {
+  color: #7fa8e0;
+}
+.sc-tool-log-icon {
+  flex-shrink: 0;
 }
 
 /* Markdown content rendered inside a chat bubble ------------------------ */

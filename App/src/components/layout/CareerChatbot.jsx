@@ -116,12 +116,14 @@ const CareerChatbot = ({
     };
   }, [accessToken]);
 
-  const TOOL_STATUS_LABEL = {
-    list_applications: "Checking your applications…",
-    list_application_emails: "Checking your application emails…",
-    get_email_detail: "Reading that email…",
-    get_user_profile: "Checking your profile…",
+  const TOOL_LABEL = {
+    list_applications: "Checking your applications",
+    list_application_emails: "Checking your application emails",
+    get_email_detail: "Reading that email",
+    get_user_profile: "Checking your profile",
   };
+
+  const describeTool = (tool) => TOOL_LABEL[tool] || `Using ${tool}`;
 
   const patchMessage = (id, patch) => {
     setMessages((prev) =>
@@ -152,7 +154,7 @@ const CareerChatbot = ({
     const assistantId = nextId();
     setMessages((prev) => [
       ...prev,
-      { id: assistantId, role: "assistant", text: "", status: null, time: formatTime() },
+      { id: assistantId, role: "assistant", text: "", toolActivity: [], time: formatTime() },
     ]);
 
     const controller = new AbortController();
@@ -169,21 +171,31 @@ const CareerChatbot = ({
               if (payload?.text) {
                 patchMessage(assistantId, (message) => ({
                   text: message.text + payload.text,
-                  status: null,
                 }));
               }
               return;
             }
 
+            // Tool activity is appended, never cleared, so it stays visible
+            // as a log for the rest of this turn instead of flashing by.
             if (eventName === "tool_start") {
-              patchMessage(assistantId, {
-                status: TOOL_STATUS_LABEL[payload?.tool] || "Using a tool…",
-              });
+              patchMessage(assistantId, (message) => ({
+                toolActivity: [
+                  ...message.toolActivity,
+                  { runId: payload?.runId, tool: payload?.tool, done: false },
+                ],
+              }));
               return;
             }
 
             if (eventName === "tool_end") {
-              patchMessage(assistantId, { status: null });
+              patchMessage(assistantId, (message) => ({
+                toolActivity: message.toolActivity.map((entry) =>
+                  entry.runId === payload?.runId
+                    ? { ...entry, done: true }
+                    : entry,
+                ),
+              }));
               return;
             }
 
@@ -191,17 +203,21 @@ const CareerChatbot = ({
               if (payload?.threadId) {
                 threadIdRef.current = payload.threadId;
               }
-              patchMessage(assistantId, {
+              patchMessage(assistantId, (message) => ({
                 text: payload?.reply ?? "",
-                status: null,
-              });
+                // Safety net: a dropped tool_end shouldn't leave a stray
+                // "running" entry in the log once the turn is done.
+                toolActivity: message.toolActivity.map((entry) => ({
+                  ...entry,
+                  done: true,
+                })),
+              }));
               return;
             }
 
             if (eventName === "error") {
               patchMessage(assistantId, {
                 text: `Something went wrong: ${payload?.error || "please try again."}`,
-                status: null,
               });
             }
           },
@@ -212,7 +228,6 @@ const CareerChatbot = ({
       if (error.name !== "AbortError") {
         patchMessage(assistantId, {
           text: `Something went wrong: ${error.message || "please try again."}`,
-          status: null,
         });
       }
     } finally {
@@ -321,11 +336,25 @@ const CareerChatbot = ({
       <div className="sc-messages" ref={messagesRef}>
         {messages.map((message) => (
           <div key={message.id} className={`sc-message ${message.role}`}>
-            {message.status && (
-              <div className="sc-message-status">{message.status}</div>
+            {message.toolActivity?.length > 0 && (
+              <div className="sc-tool-log">
+                {message.toolActivity.map((entry, index) => (
+                  <div
+                    key={entry.runId || index}
+                    className={`sc-tool-log-line${entry.done ? " done" : ""}`}
+                  >
+                    <span className="sc-tool-log-icon" aria-hidden="true">
+                      {entry.done ? "✓" : "⋯"}
+                    </span>
+                    {describeTool(entry.tool)}
+                  </div>
+                ))}
+              </div>
             )}
             <div className="sc-md">
-              {message.role === "assistant" && !message.text && !message.status ? (
+              {message.role === "assistant" &&
+              !message.text &&
+              !message.toolActivity?.length ? (
                 <span className="sc-typing">Thinking…</span>
               ) : (
                 <Markdown remarkPlugins={[remarkGfm]}>{message.text}</Markdown>

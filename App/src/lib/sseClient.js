@@ -63,6 +63,11 @@ const streamSseResponse = async (
 
     for (const message of messages) {
       processMessage(message);
+      // A fast local hop (e.g. a tool call) can deliver several complete
+      // frames in one chunk. Without a yield here they'd all apply in the
+      // same synchronous turn and the browser would never paint the
+      // intermediate state (a tool_start immediately erased by tool_end).
+      await new Promise((resolve) => setTimeout(resolve, 0));
     }
   }
 
