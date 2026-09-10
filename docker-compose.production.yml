@@ -6,20 +6,23 @@ services:
       context: ./Backend
     restart: unless-stopped
     environment:
-      NODE_ENV: production
+      NODE_ENV: "${NODE_ENV:-production}"
       PORT: "10001"
-      DATABASE_URL: "file:/app/data/studentcarr.db"
-      CORS_ORIGIN: "https://${APP_DOMAIN:?Set APP_DOMAIN in deploy/.env.production}"
-      APP_BASE_URL: "https://${APP_DOMAIN:?Set APP_DOMAIN in deploy/.env.production}"
+      DATABASE_URL: "${DATABASE_URL:?Set DATABASE_URL in deploy/.env.production}"
+      CORS_ORIGIN: "${CORS_ORIGIN:?Set CORS_ORIGIN in deploy/.env.production}"
+      APP_BASE_URL: "${APP_BASE_URL:?Set APP_BASE_URL in deploy/.env.production}"
       JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Set JWT_ACCESS_SECRET in deploy/.env.production}"
       JWT_REFRESH_SECRET: "${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET in deploy/.env.production}"
+      ACCESS_TOKEN_TTL: "${ACCESS_TOKEN_TTL:-15m}"
+      REFRESH_TOKEN_TTL: "${REFRESH_TOKEN_TTL:-30d}"
+      REFRESH_COOKIE_NAME: "${REFRESH_COOKIE_NAME:-refresh_token}"
       FIELD_ENCRYPTION_KEY: "${FIELD_ENCRYPTION_KEY:?Set FIELD_ENCRYPTION_KEY in deploy/.env.production}"
       MCP_TOKEN_SECRET: "${MCP_TOKEN_SECRET:?Set MCP_TOKEN_SECRET in deploy/.env.production}"
-      PROGRESS_TRACKING_SERVICE_BASE_URL: "http://ai:10002"
-      PROFILE_GENERATION_SERVICE_URL: "http://ai:10002/generate-profile"
-      DOCUMENT_PARSER_CONCURRENCY: "1"
-      DOCUMENT_PARSER_MIN_CHARACTERS: "200"
-      DOCUMENT_PARSER_RENDER_SCALE: "1.5"
+      PROGRESS_TRACKING_SERVICE_BASE_URL: "${PROGRESS_TRACKING_SERVICE_BASE_URL:-http://ai:10002}"
+      PROFILE_GENERATION_SERVICE_URL: "${PROFILE_GENERATION_SERVICE_URL:-http://ai:10002/generate-profile}"
+      DOCUMENT_PARSER_CONCURRENCY: "${DOCUMENT_PARSER_CONCURRENCY:-1}"
+      DOCUMENT_PARSER_MIN_CHARACTERS: "${DOCUMENT_PARSER_MIN_CHARACTERS:-200}"
+      DOCUMENT_PARSER_RENDER_SCALE: "${DOCUMENT_PARSER_RENDER_SCALE:-1.5}"
       VLLM_BASE_URL: "${VLLM_BASE_URL:-}"
       VLLM_MODEL: "${VLLM_MODEL:-}"
       VLLM_API_KEY: "${VLLM_API_KEY:-}"
@@ -43,7 +46,7 @@ services:
     environment:
       LANGGRAPH_HOST: "0.0.0.0"
       LANGGRAPH_PORT: "10002"
-      MCP_SERVER_URL: "http://mcp:10004"
+      MCP_SERVER_URL: "${MCP_SERVER_URL:-http://mcp:10004}"
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
       OPENAI_BASE_URL: "${OPENAI_BASE_URL:-}"
       OPENAI_MODEL: "${OPENAI_MODEL:-gpt-4.1-mini}"
@@ -71,7 +74,7 @@ services:
     environment:
       MCP_HOST: "0.0.0.0"
       MCP_PORT: "10004"
-      STUDENTCARR_API_URL: "http://backend:10001"
+      STUDENTCARR_API_URL: "${STUDENTCARR_API_URL:-http://backend:10001}"
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:10004/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
       interval: 15s

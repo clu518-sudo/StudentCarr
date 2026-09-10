@@ -5,9 +5,17 @@ It deliberately does not start Chroma, Google login, or Gmail OAuth.
 
 ## First server start
 
-1. Copy `.env.production.example` to `.env.production` and replace every
-   placeholder secret and domain value. `FIELD_ENCRYPTION_KEY` must be a
-   64-character hexadecimal key; generate it with `openssl rand -hex 32`.
+1. Load the production configuration from Parameter Store. The EC2 instance
+   role must be able to read `/studentcarr/production/*`:
+
+   ```sh
+   bash deploy/load-ssm-env.sh
+   ```
+
+   This writes `deploy/.env.production` atomically with mode `0600`, validates
+   required settings, and never prints secret values. For an offline/local
+   test, copy `.env.production.example` to `.env.production` and replace every
+   placeholder instead.
 2. Point `API_DOMAIN` at the EC2 Elastic IP and ensure ports 80 and 443 are
    open before starting Caddy, so it can obtain its TLS certificate.
 3. Start the stack from the repository root:
@@ -27,8 +35,30 @@ SQLite data is stored in `runtime/backend-data/`, and uploaded PDFs are stored
 in `runtime/uploads/`. Back up both directories. Do not delete them during a
 deployment.
 
+## Backups
+
+Install the systemd timer after the first successful stack start:
+
+```sh
+bash deploy/install-backup-timer.sh
+```
+
+The timer runs every two days. Each run uses SQLite's online backup API to
+create a consistent database snapshot, archives the uploads directory, and
+uploads both objects under a timestamped `backups/` prefix in
+`s3://studentcarr-demo-backup`. With the bucket's 14-day lifecycle, this keeps
+approximately seven scheduled backup generations.
+
+Run and inspect a backup immediately with:
+
+```sh
+sudo systemctl start studentcarr-backup.service
+sudo journalctl -u studentcarr-backup.service -n 100 --no-pager
+```
+
 ## Updates
 
 After updating the checked-out branch on EC2, rebuild and restart with the
-same `docker compose ... up -d --build` command. Prisma migrations run before
-the Backend starts; if migration fails, the Backend container does not start.
+same commands: refresh `deploy/.env.production` with `load-ssm-env.sh`, then
+run `docker compose ... up -d --build`. Prisma migrations run before the
+Backend starts; if migration fails, the Backend container does not start.
