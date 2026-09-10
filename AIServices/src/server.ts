@@ -64,11 +64,15 @@ const handleProfileGeneration = async (
     const payload = (await parseRequestBody(req)) as {
       currentManualProfile: unknown;
       documents: unknown[];
+      llmSettings?: unknown;
     };
 
     const manualProfile = await generateUserInformationProfile({
       currentManualProfile: (payload?.currentManualProfile || {}) as never,
       documents: Array.isArray(payload?.documents) ? (payload.documents as never) : [],
+      // Backend forwards the user's (or admin's) selected Settings-panel key;
+      // without it buildModel falls back to OPENAI_API_KEY/DASHSCOPE_API_KEY.
+      llmSettings: (payload?.llmSettings || undefined) as never,
     });
 
     writeJson(res, 200, {
