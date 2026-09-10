@@ -10,6 +10,7 @@ const userSelect = {
   createdAt: true,
   role: true,
   chatHistoryClears: true,
+  isDemo: true,
 };
 
 const extractBearerToken = (req) => {

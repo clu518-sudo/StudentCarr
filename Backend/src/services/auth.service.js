@@ -118,6 +118,7 @@ const toSafeUser = (user) => ({
   authProvider: user.authProvider,
   createdAt: user.createdAt,
   role: user.role,
+  isDemo: user.isDemo,
 });
 
 /*

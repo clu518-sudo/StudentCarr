@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import CareerChatbot from './CareerChatbot';
+import DemoWelcomeGuide from '../onboarding/DemoWelcomeGuide';
 
 // Desktop-first three-column application shell:
 //   [ Sidebar ] [ Workspace (Header + routed page) ] [ Career chatbot ]
@@ -72,6 +73,8 @@ const DashboardLayout = () => {
         onClick={() => setChatOpen(false)}
         aria-hidden="true"
       />
+
+      <DemoWelcomeGuide />
     </div>
   );
 };
