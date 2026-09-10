@@ -169,8 +169,4 @@ gmail_key.json
 *.md
 !README.md
 !MCP_USER_GUIDE.md
-# planing/ itself is tracked (docs only — the two secrets above stay
-# excluded even here since gmail_key.json / client_secret_*.json match at
-# any depth), so its markdown plans need excepting from the *.md rule above.
-!planing/**/*.md
 
