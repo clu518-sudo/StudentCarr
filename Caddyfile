@@ -1,0 +1,13 @@
+{
+  email {$CADDY_EMAIL}
+}
+
+{$API_DOMAIN} {
+  encode zstd gzip
+
+  # Caddy streams responses as they arrive. This is essential for the
+  # profile-generation and chatbot server-sent-event endpoints.
+  reverse_proxy backend:10001 {
+    flush_interval -1
+  }
+}

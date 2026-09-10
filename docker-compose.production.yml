@@ -1,0 +1,109 @@
+name: studentcarr
+
+services:
+  backend:
+    build:
+      context: ./Backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "10001"
+      DATABASE_URL: "file:/app/data/studentcarr.db"
+      CORS_ORIGIN: "https://${APP_DOMAIN:?Set APP_DOMAIN in deploy/.env.production}"
+      APP_BASE_URL: "https://${APP_DOMAIN:?Set APP_DOMAIN in deploy/.env.production}"
+      JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?Set JWT_ACCESS_SECRET in deploy/.env.production}"
+      JWT_REFRESH_SECRET: "${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET in deploy/.env.production}"
+      FIELD_ENCRYPTION_KEY: "${FIELD_ENCRYPTION_KEY:?Set FIELD_ENCRYPTION_KEY in deploy/.env.production}"
+      MCP_TOKEN_SECRET: "${MCP_TOKEN_SECRET:?Set MCP_TOKEN_SECRET in deploy/.env.production}"
+      PROGRESS_TRACKING_SERVICE_BASE_URL: "http://ai:10002"
+      PROFILE_GENERATION_SERVICE_URL: "http://ai:10002/generate-profile"
+      DOCUMENT_PARSER_CONCURRENCY: "1"
+      DOCUMENT_PARSER_MIN_CHARACTERS: "200"
+      DOCUMENT_PARSER_RENDER_SCALE: "1.5"
+      VLLM_BASE_URL: "${VLLM_BASE_URL:-}"
+      VLLM_MODEL: "${VLLM_MODEL:-}"
+      VLLM_API_KEY: "${VLLM_API_KEY:-}"
+    volumes:
+      - ./runtime/backend-data:/app/data
+      - ./runtime/uploads:/app/uploads
+    command: ["/bin/sh", "-c", "npx prisma migrate deploy && node src/server.js"]
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:10001/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - app
+
+  ai:
+    build:
+      context: ./AIServices
+    restart: unless-stopped
+    environment:
+      LANGGRAPH_HOST: "0.0.0.0"
+      LANGGRAPH_PORT: "10002"
+      MCP_SERVER_URL: "http://mcp:10004"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      OPENAI_BASE_URL: "${OPENAI_BASE_URL:-}"
+      OPENAI_MODEL: "${OPENAI_MODEL:-gpt-4.1-mini}"
+      OPENAI_TIMEOUT_MS: "${OPENAI_TIMEOUT_MS:-45000}"
+      OPENAI_MAX_RETRIES: "${OPENAI_MAX_RETRIES:-2}"
+      CHAT_MAX_STEPS: "${CHAT_MAX_STEPS:-8}"
+      CHAT_TURN_TIMEOUT_MS: "${CHAT_TURN_TIMEOUT_MS:-60000}"
+      MCP_TOOLS_TIMEOUT_MS: "${MCP_TOOLS_TIMEOUT_MS:-10000}"
+    depends_on:
+      mcp:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:10002/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - app
+
+  mcp:
+    build:
+      context: ./mcp-server
+    restart: unless-stopped
+    environment:
+      MCP_HOST: "0.0.0.0"
+      MCP_PORT: "10004"
+      STUDENTCARR_API_URL: "http://backend:10001"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:10004/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - app
+
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      API_DOMAIN: "${API_DOMAIN:?Set API_DOMAIN in deploy/.env.production}"
+      CADDY_EMAIL: "${CADDY_EMAIL:?Set CADDY_EMAIL in deploy/.env.production}"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - app
+
+networks:
+  app:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:

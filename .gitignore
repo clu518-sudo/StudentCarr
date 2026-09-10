@@ -128,6 +128,7 @@ build/
 # dotenv environment variables file
 .env
 .env.test
+.env.production
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -157,6 +158,10 @@ Backend/uploads/*
 # Chroma vector database (bind-mounted into the chroma docker container)
 chroma-data/
 
+# Production Docker runtime data and deployment secrets
+runtime/
+deploy/.env.production
+
 # Real credentials that live under planing/ — never commit these, wherever
 # they land. Google's downloaded OAuth client-secret file always starts with
 # "client_secret_", so that pattern covers it without hardcoding the exact
@@ -169,4 +174,5 @@ gmail_key.json
 *.md
 !README.md
 !MCP_USER_GUIDE.md
+!deploy/README.md
 

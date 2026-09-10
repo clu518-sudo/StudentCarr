@@ -20,7 +20,10 @@ import {
 import { runChatTurn, runChatTurnStream, ServiceError } from "./chat/agent.service.js"
 import { closeAllMcpClients } from "./chat/mcpClient.service.js";
 
-const DEFAULT_HOST = "127.0.0.1";
+// Listen on all container interfaces in production so Backend can reach this
+// service over the private Docker network. Local development may still bind
+// explicitly to 127.0.0.1 through LANGGRAPH_HOST.
+const DEFAULT_HOST = process.env.LANGGRAPH_HOST || "127.0.0.1";
 const DEFAULT_PORT = Number(process.env.LANGGRAPH_PORT || 10002);
 
 const parseRequestBody = async (req: http.IncomingMessage): Promise<unknown> => {
