@@ -101,6 +101,13 @@ export const authApi = {
   me: (token) => apiRequest("/auth/me", { method: "GET" }, token),
 };
 
+// Public, rate-limited (see Backend/src/demoAccounts/) — no token needed.
+// Returns { email, password, expiresAt } for a freshly created, pre-seeded
+// throwaway account; login() with those credentials the normal way.
+export const demoAccountApi = {
+  create: () => apiRequest("/demo-account", { method: "POST" }),
+};
+
 // Long-lived per-user event stream. Several contexts subscribe to it
 // independently; the server fans one event out to every open subscriber.
 export const subscribeUserEvents = async (

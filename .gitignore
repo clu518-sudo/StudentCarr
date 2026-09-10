@@ -157,13 +157,20 @@ Backend/uploads/*
 # Chroma vector database (bind-mounted into the chroma docker container)
 chroma-data/
 
+# Real credentials that live under planing/ — never commit these, wherever
+# they land. Google's downloaded OAuth client-secret file always starts with
+# "client_secret_", so that pattern covers it without hardcoding the exact
+# (client-id-bearing) filename.
+client_secret_*.json
 gmail_key.json
-
-planing/
 
 
 # Markdown files
 *.md
 !README.md
 !MCP_USER_GUIDE.md
+# planing/ itself is tracked (docs only — the two secrets above stay
+# excluded even here since gmail_key.json / client_secret_*.json match at
+# any depth), so its markdown plans need excepting from the *.md rule above.
+!planing/**/*.md
 

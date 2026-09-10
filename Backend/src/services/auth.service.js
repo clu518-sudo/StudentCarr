@@ -2,17 +2,31 @@ import argon2 from "argon2";
 import env from "../config/env.js";
 import prisma from "../lib/prisma.js";
 import { encryptText, generateOpaqueToken, hashValue } from "../lib/crypto.js";
+import { hashPassword } from "../lib/password.js";
 import {
   signAccessToken,
   signRefreshToken,
   verifyRefreshToken,
 } from "../lib/token.js";
 import { getFreshGmailAccessContextForUser } from "../processTracking/pt.gmail.js";
+import { resetChatSessionForUser } from "../chat/chat.service.js";
+import { deleteDemoAccount } from "../demoAccounts/demoAccounts.service.js";
 
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo";
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+// Demo-deploy guard: a non-admin's login (access token, refresh token, and
+// the AuthSession row derived from it) is capped at 10 minutes instead of
+// the app-wide defaults in env.js (ACCESS_TOKEN_TTL/REFRESH_TOKEN_TTL).
+// Admins are unaffected. Applied both at login and at each refresh, so it's
+// a sliding 10-minute window rather than a hard deadline from the original
+// login — the app has no background refresh loop (see AuthContext.jsx), so
+// in practice this means "idle for 10 minutes with no page reload -> signed
+// out," which is what a demo needs.
+const NORMAL_USER_SESSION_TTL = "10m";
+const sessionTtlFor = (user) =>
+  user.role === "admin" ? undefined : NORMAL_USER_SESSION_TTL;
 const GOOGLE_LOGIN_SCOPE_LIST = [
   "openid",
   "email",
@@ -106,16 +120,6 @@ const toSafeUser = (user) => ({
   role: user.role,
 });
 
-// Shared argon2 params — also used by scripts/grant-admin.js so the admin
-// CLI hashes passwords identically to normal signup.
-const hashPassword = (password) =>
-  argon2.hash(password, {
-    type: argon2.argon2id,
-    memoryCost: 19456,
-    timeCost: 2,
-    parallelism: 1,
-  });
-
 /*
   save refresh token into backend database. 
   function description:
@@ -151,10 +155,23 @@ const writeAudit = async (eventType, userId, metadata) => {
 };
 
 const createAuthResult = async (user, req, eventType, metadata = null) => {
-  const accessToken = signAccessToken(user.id);
-  const { token: refreshToken, sessionId } = signRefreshToken(user.id);
+  const ttl = sessionTtlFor(user);
+  const accessToken = signAccessToken(user.id, ttl);
+  const { token: refreshToken, sessionId } = signRefreshToken(user.id, undefined, ttl);
   await createSession(user.id, refreshToken, sessionId, req);
   await writeAudit(eventType, user.id, metadata);
+
+  // Every login (password or Google) starts a fresh chatbot dialog for
+  // non-admins — see resetChatSessionForUser. Skipped for signup (nothing to
+  // reset yet on a brand-new account) and never reached by refreshSession,
+  // which builds its own result and doesn't call this — a silent token
+  // refresh is not a new login. A failure here shouldn't fail the login
+  // itself, so it's logged rather than thrown.
+  if (eventType !== "signup_success" && user.role !== "admin") {
+    await resetChatSessionForUser(user.id).catch((error) => {
+      console.error(`Failed to reset chat session for user=${user.id}:`, error.message);
+    });
+  }
 
   return {
     user: toSafeUser(user),
@@ -365,9 +382,13 @@ const refreshSession = async (refreshToken, req) => {
     data: { revokedAt: new Date() },
   });
 
-  const accessToken = signAccessToken(session.userId);
+  // Same 10-minute cap as login for non-admins (sessionTtlFor) — a refresh
+  // extends the window rather than resetting an absolute deadline, but see
+  // NORMAL_USER_SESSION_TTL's comment for why that's fine in practice here.
+  const ttl = sessionTtlFor(session.user);
+  const accessToken = signAccessToken(session.userId, ttl);
   const { token: nextRefreshToken, sessionId: nextSessionId } =
-    signRefreshToken(session.userId);
+    signRefreshToken(session.userId, undefined, ttl);
   await createSession(session.userId, nextRefreshToken, nextSessionId, req);
 
   await writeAudit("refresh_success", session.userId, {
@@ -508,6 +529,23 @@ const logout = async (refreshToken) => {
 
   try {
     const payload = verifyRefreshToken(refreshToken);
+    const user = await prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { id: true, isDemo: true },
+    });
+
+    // A demo account's whole lifecycle ends at logout, not just its
+    // session — deleting the account here (rather than waiting for
+    // demoAccounts.service.js's periodic sweep) means the credentials
+    // shown on the login page stop working the moment the visitor is done
+    // with them, instead of lingering up to 10 more minutes.
+    if (user?.isDemo) {
+      await deleteDemoAccount(user.id).catch((error) => {
+        console.error(`Failed to delete demo account ${user.id} on logout:`, error.message);
+      });
+      return;
+    }
+
     await prisma.authSession.updateMany({
       where: { id: payload.sid, revokedAt: null },
       data: { revokedAt: new Date() },

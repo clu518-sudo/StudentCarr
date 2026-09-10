@@ -2,6 +2,7 @@ import "./lib/httpAgent.js";
 import app from "./app.js";
 import env from "./config/env.js";
 import { bootstrapDocumentParsingQueue } from "./documentParsing/index.js";
+import { startDemoAccountCleanupLoop } from "./demoAccounts/demoAccounts.service.js";
 
 const server = app.listen(env.port, () => {
   console.log(`Auth backend listening on port ${env.port}`);
@@ -15,6 +16,8 @@ const server = app.listen(env.port, () => {
     .catch((error) => {
       console.error("Failed to bootstrap document parsing queue", error);
     });
+
+  startDemoAccountCleanupLoop();
 });
 
 // Stop accepting new connections and let in-flight requests finish before

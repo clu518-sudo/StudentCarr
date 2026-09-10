@@ -9,10 +9,12 @@ import apiKeyRoutes from "../apiKeys/apiKeys.routes.js";
 import mcpRoutes from "../mcp/index.js";
 import chatRoutes from "../chat/index.js"
 import llmSettingsRoutes from "../llmSettings/index.js";
+import demoAccountRoutes from "../demoAccounts/demoAccounts.routes.js";
 
 const router = Router();
 
 router.use("/auth", authRoutes);
+router.use("/demo-account", demoAccountRoutes);
 router.get("/events", requireAuth, streamUserEvents);
 router.use("/profile-management", profileManagementRoutes);
 router.use("/process-tracking", processTrackingRoutes);

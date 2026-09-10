@@ -18,6 +18,7 @@
 import "../src/config/env.js"; // side effect: loads Backend/.env
 import prisma from "../src/lib/prisma.js";
 import { hashPassword } from "../src/services/auth.service.js";
+import { removeFileSafe } from "../src/profileManagement/pm.storage.js";
 
 const normalizeEmail = (value) =>
   typeof value === "string" ? value.trim().toLowerCase() : "";
@@ -81,6 +82,14 @@ const deleteUser = async (email) => {
     );
     process.exit(1);
   }
+
+  // Uploaded document files live on disk, not just in the DB — cascading
+  // the ProfileDocument rows away would otherwise leave them orphaned.
+  const documents = await prisma.profileDocument.findMany({
+    where: { userId: user.id },
+    select: { path: true },
+  });
+  await Promise.all(documents.map((doc) => removeFileSafe(doc.path)));
 
   // Every other relation cascades on user delete except ApiKey, which has
   // no onDelete rule — deleted explicitly here so the user delete itself

@@ -90,10 +90,23 @@ const deleteChatHistory = ({ id: userId, role }) =>
         ]),
   ]);
 
+// Called on every login (not signup, and not a silent token refresh — see
+// createAuthResult in auth.service.js) for non-admin users: wipes previous
+// chat threads so each login starts a brand-new dialog, and resets
+// chatHistoryClears to 0 so the one-time "clear history" allowance
+// (chatLimits.js) renews each login too, instead of being a lifetime cap.
+const resetChatSessionForUser = (userId) =>
+  prisma.$transaction([
+    prisma.chatMessage.deleteMany({ where: { thread: { userId } } }),
+    prisma.chatThread.deleteMany({ where: { userId } }),
+    prisma.user.update({ where: { id: userId }, data: { chatHistoryClears: 0 } }),
+  ]);
+
 export {
   resolveThread,
   loadRecentHistory,
   appendTurn,
   getLatestThreadWithMessages,
   deleteChatHistory,
+  resetChatSessionForUser,
 };

@@ -56,6 +56,12 @@ model User {
   // Demo-deploy guard: non-admins may clear their chat history once, ever.
   // See Backend/src/chat/chatLimits.js.
   chatHistoryClears Int         @default(0) @map("chat_history_clears")
+  // Self-service "Create demo account" accounts (see
+  // Backend/src/demoAccounts/). isDemo marks them for the login-page flow;
+  // demoExpiresAt is when the whole account gets deleted, not just its
+  // session — see demoAccounts.service.js's cleanup sweep.
+  isDemo          Boolean       @default(false) @map("is_demo")
+  demoExpiresAt   DateTime?     @map("demo_expires_at")
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
   sessions        AuthSession[]
