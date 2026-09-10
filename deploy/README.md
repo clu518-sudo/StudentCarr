@@ -5,6 +5,15 @@ It deliberately does not start Chroma, Google login, or Gmail OAuth.
 
 ## First server start
 
+Before each deployment, run `npm --prefix AIServices run typecheck` on the
+development machine for the revision being deployed. The AI Docker build
+uses TypeScript's `--noCheck --noResolve` emit mode with a 512 MiB heap limit because full
+type checking exceeds the small EC2 host's memory budget. This still compiles
+the application to JavaScript and reports parse/emit errors; semantic type
+checking is a required separate pre-deployment step. All application TypeScript
+files are included explicitly by `src/**/*.ts`; dependency declarations are
+not followed during the Docker compilation.
+
 1. Load the production configuration from Parameter Store. The EC2 instance
    role must be able to read `/studentcarr/production/*`:
 
