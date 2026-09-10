@@ -8,6 +8,9 @@
     "start": "node src/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "grant-admin": "node scripts/grant-admin.js",
+    "create-user": "node scripts/create-user.js",
+    "seed-demo-data": "node scripts/seed-demo-data.js",
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand"
   },
   "keywords": [],
@@ -30,6 +33,7 @@
     "multer": "^2.0.2",
     "pdf-parse": "^1.1.4",
     "pdfjs-dist": "^5.6.205",
+    "pdfkit": "^0.20.2",
     "prisma": "^6.19.2",
     "rate-limiter-flexible": "^9.1.1",
     "undici": "^8.10.2",

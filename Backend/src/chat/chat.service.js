@@ -73,10 +73,21 @@ const getLatestThreadWithMessages = async (userId) => {
 // Wipes every thread belonging to one user — backs the "clear history" button.
 // Messages are deleted explicitly rather than left to the FK cascade so the
 // result does not depend on SQLite's foreign_keys pragma being enabled.
-const deleteChatHistory = (userId) =>
+// For non-admins this also bumps chatHistoryClears in the same transaction,
+// so the demo's one-time-clear limit (chatLimits.js) can never diverge from
+// whether the wipe actually happened.
+const deleteChatHistory = ({ id: userId, role }) =>
   prisma.$transaction([
     prisma.chatMessage.deleteMany({ where: { thread: { userId } } }),
     prisma.chatThread.deleteMany({ where: { userId } }),
+    ...(role === "admin"
+      ? []
+      : [
+          prisma.user.update({
+            where: { id: userId },
+            data: { chatHistoryClears: { increment: 1 } },
+          }),
+        ]),
   ]);
 
 export {

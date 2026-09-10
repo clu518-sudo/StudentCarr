@@ -10,9 +10,15 @@ describe("Auth flow", () => {
   let accessToken;
 
   afterAll(async () => {
-    await prisma.authSession.deleteMany();
-    await prisma.authAuditLog.deleteMany();
-    await prisma.user.deleteMany();
+    // Scoped to this suite's own fixture user — an unscoped deleteMany()
+    // would also wipe unrelated accounts already in the database (real or
+    // from other suites) and fail on their FK-referencing rows (e.g. ApiKey).
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (user) {
+      await prisma.authSession.deleteMany({ where: { userId: user.id } });
+      await prisma.authAuditLog.deleteMany({ where: { userId: user.id } });
+      await prisma.user.deleteMany({ where: { id: user.id } });
+    }
     await prisma.$disconnect();
   });
 

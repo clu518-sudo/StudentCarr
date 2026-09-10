@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
 import { useProfile, emptyProfile } from "../../contexts/ProfileContext";
 import RichTextEditor from "../common/RichTextEditor";
 import { SECTION_LABELS, findDuplicatedSection } from "../../lib/profileEntries";
@@ -58,6 +59,7 @@ const getParserStatusClass = (status) => {
 
 const ProfileView = () => {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [activeMode, setActiveMode] = useState("manual");
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
   const [deletingAll, setDeletingAll] = useState(false);
@@ -1168,22 +1170,28 @@ const ProfileView = () => {
                   >
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                       <h3 className="font-semibold text-gray-900">{type}</h3>
-                      <label
-                        className={`${profileActionButtonClass} cursor-pointer`}
-                      >
-                        {uploadingByType[type] ? "Uploading..." : "Upload"}
-                        <input
-                          type="file"
-                          accept="application/pdf,.pdf"
-                          className="hidden"
-                          disabled={Boolean(uploadingByType[type])}
-                          onChange={(event) => {
-                            const file = event.target.files?.[0];
-                            uploadDocumentForType(type, file);
-                            event.target.value = "";
-                          }}
-                        />
-                      </label>
+                      {/* Uploads are admin-only in the demo deploy; the
+                          backend enforces this too (requireAdmin on the
+                          upload routes), this just avoids offering a
+                          control that would 403. */}
+                      {isAdmin && (
+                        <label
+                          className={`${profileActionButtonClass} cursor-pointer`}
+                        >
+                          {uploadingByType[type] ? "Uploading..." : "Upload"}
+                          <input
+                            type="file"
+                            accept="application/pdf,.pdf"
+                            className="hidden"
+                            disabled={Boolean(uploadingByType[type])}
+                            onChange={(event) => {
+                              const file = event.target.files?.[0];
+                              uploadDocumentForType(type, file);
+                              event.target.value = "";
+                            }}
+                          />
+                        </label>
+                      )}
                     </div>
 
                     {!documentsByType[type]?.length ? (

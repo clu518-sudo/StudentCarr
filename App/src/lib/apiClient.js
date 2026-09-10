@@ -293,13 +293,15 @@ export const chatApi = {
   clearHistory: (token) =>
     apiRequest("/chat/history", { method: "DELETE" }, token),
   // SSE turn: onEvent fires for "token" (incremental text), "tool_start"/
-  // "tool_end" (tool activity), and "completed" (final reply + threadId).
-  stream: async ({ message, threadId, onEvent = () => {}, signal }, token) => {
+  // "tool_end" (tool activity), and "completed" (final reply + threadId +
+  // limits). quickActionId, when set, marks that chip used-up server-side
+  // once the turn succeeds (see chatLimits.js).
+  stream: async ({ message, threadId, quickActionId, onEvent = () => {}, signal }, token) => {
     const response = await fetch(`${API_BASE_URL}/chat/stream`, {
       method: "POST",
       headers: buildHeaders(token),
       credentials: "include",
-      body: JSON.stringify({ message, threadId }),
+      body: JSON.stringify({ message, threadId, quickActionId }),
       signal,
     });
 
@@ -310,7 +312,10 @@ export const chatApi = {
       } catch {
         // Ignore parsing failure and use fallback message.
       }
-      throw new Error(payload?.error || "Failed to start chat stream");
+      const error = new Error(payload?.error || "Failed to start chat stream");
+      error.status = response.status;
+      error.limits = payload?.limits;
+      throw error;
     }
 
     await streamSseResponse(response, {

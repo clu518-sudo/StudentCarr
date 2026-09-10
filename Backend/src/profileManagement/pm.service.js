@@ -2,7 +2,7 @@ import prisma from "../lib/prisma.js";
 import { removeFileSafe } from "./pm.storage.js";
 import { enqueueDocumentParsing } from "../documentParsing/index.js";
 import { DOCUMENT_PARSER_STATUS } from "../documentParsing/constants.js";
-import { getDecryptedLlmKey } from "../llmSettings/llmSettings.service.js";
+import { getEffectiveLlmKey } from "../llmSettings/llmSettings.service.js";
 
 const PROFILE_GENERATION_SERVICE_URL =
   process.env.PROFILE_GENERATION_SERVICE_URL ||
@@ -583,6 +583,7 @@ const generateManualProfileForUserDummy = async (
   userId,
   onProgress,
   options = {},
+  role = "user",
 ) => {
   const signal = options?.signal;
   if (signal?.aborted) {
@@ -620,7 +621,9 @@ const generateManualProfileForUserDummy = async (
     onProgress("Extracting profile details from parsed documents...");
   }
 
-  const userLlmKey = await getDecryptedLlmKey({ userId });
+  // Non-admins have no LLM settings of their own; this falls back to the
+  // admin's shared key, same as chat (see llmSettings.service.js).
+  const userLlmKey = await getEffectiveLlmKey({ userId, role });
   const llmSettings = userLlmKey
     ? {
         apiKey: userLlmKey.apiKey,

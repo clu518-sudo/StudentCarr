@@ -105,10 +105,26 @@ const getDecryptedLlmKey = async ({ userId }) => {
   };
 };
 
+// Internal use only (chat, profile generation). Non-admins cannot configure
+// LLM settings (see requireAdmin on /api/llm-settings), so the demo runs on
+// the admin's selected key. Admins always use their own key, or none.
+const getEffectiveLlmKey = async ({ userId, role }) => {
+  const own = await getDecryptedLlmKey({ userId });
+  if (own || role === "admin") return own;
+
+  const admin = await prisma.user.findFirst({
+    where: { role: "admin" },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+  return admin ? getDecryptedLlmKey({ userId: admin.id }) : null;
+};
+
 export {
   listLlmKeys,
   createLlmKey,
   selectLlmKey,
   deleteLlmKey,
   getDecryptedLlmKey,
+  getEffectiveLlmKey,
 };

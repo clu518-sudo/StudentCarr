@@ -13,14 +13,28 @@ import { chatApi } from "../../lib/apiClient";
 
 const QUICK_ACTIONS = [
   {
+    id: "profile-summary",
     label: "summarize my profile and recommend some relevant job types",
     prompt: "summarize my profile and recommend some relevant job types",
   },
   {
+    id: "application-progress",
     label: "How are my applications progressing?",
     prompt: "How are my applications progressing?",
   },
 ];
+
+// Default limits snapshot before the server has ever responded — matches a
+// fresh non-admin account's actual budget, so the UI doesn't flash from an
+// unlimited-looking state down to the real cap once history loads.
+const DEFAULT_LIMITS = {
+  unlimited: false,
+  messageLimit: 4,
+  messagesUsed: 0,
+  remaining: 4,
+  usedQuickActions: [],
+  canClearHistory: true,
+};
 
 const GREETING =
   "Hi! I'm your career assistant. Ask me about your profile, applications, skills, or interviews.";
@@ -54,6 +68,7 @@ const CareerChatbot = ({
   ]);
   const [input, setInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
+  const [limits, setLimits] = useState(DEFAULT_LIMITS);
 
   const messagesRef = useRef(null);
   const inputRef = useRef(null);
@@ -94,7 +109,13 @@ const CareerChatbot = ({
       try {
         const response = await chatApi.history(accessToken);
         const data = response?.data;
-        if (cancelled || !data?.threadId || !data.messages?.length) return;
+        if (cancelled) return;
+
+        if (data?.limits) {
+          setLimits(data.limits);
+        }
+
+        if (!data?.threadId || !data.messages?.length) return;
 
         threadIdRef.current = data.threadId;
         setMessages((prev) => [
@@ -138,9 +159,16 @@ const CareerChatbot = ({
     );
   };
 
-  const sendMessage = async (rawText) => {
+  const sendMessage = async (rawText, quickActionId) => {
     const text = rawText.trim();
     if (!text || isThinking) {
+      return;
+    }
+    // Demo-deploy guard: mirrors the server-side check in chatLimits.js so
+    // an already-disabled control can't be forced via a stale ref. The
+    // server is still the real enforcement point (see the 403 handling
+    // below) — this just avoids a pointless round trip.
+    if (!limits.unlimited && (limits.remaining <= 0 || (quickActionId && limits.usedQuickActions.includes(quickActionId)))) {
       return;
     }
 
@@ -165,6 +193,7 @@ const CareerChatbot = ({
         {
           message: text,
           threadId: threadIdRef.current || undefined,
+          quickActionId,
           signal: controller.signal,
           onEvent: (eventName, payload) => {
             if (eventName === "token") {
@@ -203,6 +232,9 @@ const CareerChatbot = ({
               if (payload?.threadId) {
                 threadIdRef.current = payload.threadId;
               }
+              if (payload?.limits) {
+                setLimits(payload.limits);
+              }
               patchMessage(assistantId, (message) => ({
                 text: payload?.reply ?? "",
                 // Safety net: a dropped tool_end shouldn't leave a stray
@@ -226,8 +258,16 @@ const CareerChatbot = ({
       );
     } catch (error) {
       if (error.name !== "AbortError") {
+        // A 403 from the demo-limit checks carries its own message and a
+        // fresh limits snapshot — render that instead of the generic
+        // fallback, and sync the UI's budget to what the server enforced.
+        if (error.status === 403 && error.limits) {
+          setLimits(error.limits);
+        }
         patchMessage(assistantId, {
-          text: `Something went wrong: ${error.message || "please try again."}`,
+          text: error.status === 403
+            ? error.message
+            : `Something went wrong: ${error.message || "please try again."}`,
         });
       }
     } finally {
@@ -241,10 +281,14 @@ const CareerChatbot = ({
     sendMessage(input);
   };
 
-  // Wipes the saved threads and resets the panel to a clean slate.
+  // Wipes the saved threads and resets the panel to a clean slate. Non-admins
+  // get exactly one of these, ever (see limits.canClearHistory / chatHistoryClears).
   const handleClearHistory = async () => {
-    if (isThinking) return;
-    if (!window.confirm("Delete all saved chat history for this account?")) {
+    if (isThinking || !limits.canClearHistory) return;
+    const confirmMessage = limits.unlimited
+      ? "Delete all saved chat history for this account?"
+      : "Delete all saved chat history for this account? This demo only allows this once.";
+    if (!window.confirm(confirmMessage)) {
       return;
     }
 
@@ -254,7 +298,17 @@ const CareerChatbot = ({
       setMessages([
         { id: nextId(), role: "assistant", text: GREETING, time: formatTime() },
       ]);
+      setLimits((prev) => ({
+        ...prev,
+        messagesUsed: 0,
+        remaining: prev.messageLimit ?? DEFAULT_LIMITS.messageLimit,
+        usedQuickActions: [],
+        canClearHistory: prev.unlimited,
+      }));
     } catch (error) {
+      if (error.status === 403) {
+        setLimits((prev) => ({ ...prev, canClearHistory: false }));
+      }
       setMessages((prev) => [
         ...prev,
         {
@@ -267,8 +321,8 @@ const CareerChatbot = ({
     }
   };
 
-  const handleQuickAction = (prompt) => {
-    sendMessage(prompt);
+  const handleQuickAction = (action) => {
+    sendMessage(action.prompt, action.id);
   };
 
   return (
@@ -303,9 +357,13 @@ const CareerChatbot = ({
               type="button"
               className="sc-chat-delete"
               onClick={handleClearHistory}
-              disabled={isThinking}
+              disabled={isThinking || !limits.canClearHistory}
               aria-label="Delete saved chat history"
-              title="Delete saved chat history"
+              title={
+                limits.canClearHistory
+                  ? "Delete saved chat history"
+                  : "This demo allows clearing chat history only once"
+              }
             >
               🗑
             </button>
@@ -362,17 +420,30 @@ const CareerChatbot = ({
         ))}
       </div>
 
+      {!limits.unlimited && (
+        <p className="sc-chat-limit-note">
+          {limits.remaining > 0
+            ? `${limits.remaining} of ${limits.messageLimit} messages left in this demo`
+            : `Demo limit reached — ${limits.messageLimit} messages per conversation`}
+        </p>
+      )}
+
       <div className="sc-quick-actions">
-        {QUICK_ACTIONS.map((action) => (
-          <button
-            key={action.label}
-            type="button"
-            className="sc-chip"
-            onClick={() => handleQuickAction(action.prompt)}
-          >
-            {action.label}
-          </button>
-        ))}
+        {QUICK_ACTIONS.map((action) => {
+          const used = limits.usedQuickActions.includes(action.id);
+          return (
+            <button
+              key={action.id}
+              type="button"
+              className="sc-chip"
+              disabled={isThinking || used || (!limits.unlimited && limits.remaining <= 0)}
+              title={used ? "Already used in this conversation" : undefined}
+              onClick={() => handleQuickAction(action)}
+            >
+              {action.label}
+            </button>
+          );
+        })}
       </div>
 
       <form className="sc-composer" onSubmit={handleSubmit}>
@@ -381,13 +452,18 @@ const CareerChatbot = ({
             ref={inputRef}
             value={input}
             onChange={(event) => setInput(event.target.value)}
-            placeholder="Ask anything about your career..."
+            placeholder={
+              !limits.unlimited && limits.remaining <= 0
+                ? "Demo limit reached — 4 messages per conversation"
+                : "Ask anything about your career..."
+            }
             aria-label="Message the career assistant"
+            disabled={!limits.unlimited && limits.remaining <= 0}
           />
           <button
             type="submit"
             className="sc-send"
-            disabled={!input.trim() || isThinking}
+            disabled={!input.trim() || isThinking || (!limits.unlimited && limits.remaining <= 0)}
             aria-label="Send message"
           >
             ➤

@@ -103,7 +103,18 @@ const toSafeUser = (user) => ({
   isEmailVerified: user.isEmailVerified,
   authProvider: user.authProvider,
   createdAt: user.createdAt,
+  role: user.role,
 });
+
+// Shared argon2 params — also used by scripts/grant-admin.js so the admin
+// CLI hashes passwords identically to normal signup.
+const hashPassword = (password) =>
+  argon2.hash(password, {
+    type: argon2.argon2id,
+    memoryCost: 19456,
+    timeCost: 2,
+    parallelism: 1,
+  });
 
 /*
   save refresh token into backend database. 
@@ -224,12 +235,7 @@ const signup = async ({ email, password, fullName }, req) => {
     throw err;
   }
 
-  const passwordHash = await argon2.hash(password, {
-    type: argon2.argon2id,
-    memoryCost: 19456,
-    timeCost: 2,
-    parallelism: 1,
-  });
+  const passwordHash = await hashPassword(password);
 
   const user = await prisma.user.create({
     data: {
@@ -519,4 +525,5 @@ export {
   completeGoogleLogin,
   refreshSession,
   logout,
+  hashPassword,
 };

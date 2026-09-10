@@ -49,6 +49,13 @@ model User {
   googleSub       String?       @unique @map("google_sub")
   fullName        String?       @map("full_name")
   isEmailVerified Boolean       @default(false) @map("is_email_verified")
+  // "user" or "admin". Only an admin can upload profile documents or
+  // configure LLM settings; non-admin chat runs on the admin's shared key
+  // (see Backend/src/llmSettings/llmSettings.service.js getEffectiveLlmKey).
+  role              String      @default("user") @map("role")
+  // Demo-deploy guard: non-admins may clear their chat history once, ever.
+  // See Backend/src/chat/chatLimits.js.
+  chatHistoryClears Int         @default(0) @map("chat_history_clears")
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
   sessions        AuthSession[]
@@ -432,6 +439,9 @@ model ChatThread {
   id        String        @id @default(uuid())
   userId    String        @map("user_id")
   title     String?
+  // JSON-encoded array of quick-action ids already used in this thread, e.g.
+  // ["profile-summary"]. SQLite has no array type; see chatLimits.js.
+  usedQuickActions String? @map("used_quick_actions")
   createdAt DateTime      @default(now()) @map("created_at")
   updatedAt DateTime      @updatedAt @map("updated_at")
   user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)

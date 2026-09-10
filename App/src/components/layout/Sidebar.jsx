@@ -8,9 +8,12 @@ import { useProfile } from '../../contexts/ProfileContext';
 // appearance, ordering, and labels are redesigned to match the reference.
 const Sidebar = () => {
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { manualProfile } = useProfile();
 
+  // Settings (LLM setup) is admin-only in the demo deploy — the route
+  // itself is also gated via AdminRoute, this just keeps the link from
+  // appearing for accounts that would bounce off it.
   const navigationItems = [
     {
       name: 'Dashboard',
@@ -93,7 +96,7 @@ const Sidebar = () => {
         </svg>
       )
     }
-  ];
+  ].filter((item) => item.name !== 'Settings' || isAdmin);
 
   const isActiveParent = (item) => {
     if (item.subItems) {

@@ -18,12 +18,30 @@ const createTestPdf = async (name, contents = "test pdf content") => {
   return targetPath;
 };
 
+// Fixture users created across the suite, so afterAll can clean up exactly
+// these accounts instead of every user in the database (an unscoped
+// deleteMany() would also hit unrelated real accounts and fail on their
+// FK-referencing rows, e.g. ApiKey).
+const createdUserIds = [];
+
+// Document uploads are admin-only in the demo deploy (see requireAdmin on
+// /api/profile-management/documents*), so this suite's fixture user is
+// promoted right after signup — the access token itself carries no role,
+// requireAuth looks it up per request, so promoting after minting works.
 const createAuthenticatedUser = async () => {
   const email = `profile_doc_${Date.now()}_${Math.random().toString(36).slice(2)}@example.com`;
   const signupResponse = await request(app).post("/api/auth/signup").send({
     email,
     password: "StrongPass123!",
     fullName: "Profile Document Test User",
+  });
+
+  const userId = signupResponse.body.data.user.id;
+  createdUserIds.push(userId);
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { role: "admin" },
   });
 
   return signupResponse.body.data.accessToken;
@@ -61,11 +79,12 @@ describe("Profile document parsing flow", () => {
 
   afterAll(async () => {
     resetDocumentParsingTestOverrides();
-    await prisma.authSession.deleteMany();
-    await prisma.authAuditLog.deleteMany();
-    await prisma.profileDocument.deleteMany();
-    await prisma.userProfile.deleteMany();
-    await prisma.user.deleteMany();
+    const where = { userId: { in: createdUserIds } };
+    await prisma.authSession.deleteMany({ where });
+    await prisma.authAuditLog.deleteMany({ where });
+    await prisma.profileDocument.deleteMany({ where });
+    await prisma.userProfile.deleteMany({ where });
+    await prisma.user.deleteMany({ where: { id: { in: createdUserIds } } });
     await fs.promises.rm(
       path.resolve(process.cwd(), "uploads", "profile"),
       { recursive: true, force: true },

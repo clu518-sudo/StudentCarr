@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth } from "../middleware/auth.middleware.js";
+import { requireAuth, requireAdmin } from "../middleware/auth.middleware.js";
 import { uploadProfileDocuments } from "./pm.storage.js";
 import {
   getProfile,
@@ -20,14 +20,18 @@ router.use(requireAuth);
 router.get("/", getProfile);
 router.put("/manual", updateManualProfile);
 router.post("/manual/generate/stream", generateManualProfileStream);
+// Uploads are admin-only in the demo deploy; requireAdmin runs before multer
+// so a rejected upload never touches disk.
 router.post(
   "/documents",
+  requireAdmin,
   uploadProfileDocuments.array("documents", 10),
   handleUploadError,
   uploadDocuments,
 );
 router.post(
   "/documents/single",
+  requireAdmin,
   uploadProfileDocuments.single("document"),
   handleUploadError,
   uploadSingleDocument,

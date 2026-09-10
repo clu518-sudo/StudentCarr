@@ -899,6 +899,18 @@
   border-color: #587db2;
   background: #16273f;
 }
+.sc-chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  border-color: #31445e;
+  background: #101c2e;
+}
+.sc-chat-limit-note {
+  margin: 0;
+  padding: 0 18px 8px;
+  font-size: 11px;
+  color: var(--sc-muted);
+}
 .sc-composer {
   padding: 14px 18px 18px;
   border-top: 1px solid var(--sc-border);

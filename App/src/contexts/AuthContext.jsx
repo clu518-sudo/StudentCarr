@@ -22,6 +22,7 @@ export const AuthProvider = ({ children }) => {
     ...rawUser,
     authProvider: rawUser?.authProvider || "password",
     name: rawUser?.fullName || rawUser?.email || "",
+    role: rawUser?.role || "user",
   });
 
   const applyAuthState = (nextUser, nextToken) => {
@@ -89,7 +90,9 @@ export const AuthProvider = ({ children }) => {
       const nextUser = normalizeUser(response.data.user);
 
       applyAuthState(nextUser, response.data.accessToken);
-      return { success: true };
+      // AdminLoginView needs the role right away, before a re-render lets it
+      // read it back off context.
+      return { success: true, user: nextUser };
     } catch (error) {
       // The status is what lets the login form tell a rejected credential
       // (401) apart from a validation or transport problem.
@@ -144,10 +147,13 @@ export const AuthProvider = ({ children }) => {
     clearAuthState();
   };
 
+  const isAdmin = user?.role === "admin";
+
   const value = useMemo(
     () => ({
       isAuthenticated,
       user,
+      isAdmin,
       loading,
       initializing,
       accessToken,
@@ -158,7 +164,7 @@ export const AuthProvider = ({ children }) => {
       refreshSession,
       fetchMe,
     }),
-    [isAuthenticated, user, loading, initializing, accessToken],
+    [isAuthenticated, user, isAdmin, loading, initializing, accessToken],
   );
 
   return (

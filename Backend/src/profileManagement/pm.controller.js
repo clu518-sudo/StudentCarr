@@ -216,6 +216,7 @@ const generateManualProfileStream = async (req, res, next) => {
         }
       },
       { signal: generationAbortController.signal },
+      req.user.role,
     );
 
     if (!streamClosed) {

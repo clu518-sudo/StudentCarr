@@ -22,6 +22,8 @@ const requireAuth = async (req, res, next) => {
         isEmailVerified: true,
         authProvider: true,
         createdAt: true,
+        role: true,
+        chatHistoryClears: true,
       },
     });
 
@@ -36,4 +38,13 @@ const requireAuth = async (req, res, next) => {
   }
 };
 
-export { requireAuth };
+// Gate for admin-only routes (LLM settings, document uploads). Must run
+// after requireAuth so req.user is already populated.
+const requireAdmin = (req, res, next) => {
+  if (req.user?.role !== "admin") {
+    return res.status(403).json({ success: false, error: "Administrator access required" });
+  }
+  return next();
+};
+
+export { requireAuth, requireAdmin };
