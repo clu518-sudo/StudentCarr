@@ -147,8 +147,12 @@ temp/
 *.db-wal
 *.db-shm
 
-# files
-uploads/
+# files — keep the uploads folder itself tracked (so it exists on a fresh
+# clone), ignore only what gets uploaded into it. Anchored to Backend/uploads
+# specifically (a bare "uploads/*" is anchored to the repo root, not every
+# uploads/ dir, since it contains a "/" in the middle of the pattern).
+Backend/uploads/*
+!Backend/uploads/.gitkeep
 
 # Chroma vector database (bind-mounted into the chroma docker container)
 chroma-data/
