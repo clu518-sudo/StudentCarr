@@ -145,19 +145,33 @@ const generateRequestSchema = z.object({
   llmSettings: llmSettingsSchema.optional(),
 });
 
-const extractPersonalPreferencesEducationOutputSchema =
-  manualProfileSchema.pick({
-    personalInfo: true,
-    preferences: true,
-    education: true,
-  });
+// OpenAI strict structured output (forced on by @langchain/openai for zod
+// schemas) requires every property to be required, so optional fields are
+// expressed as required-but-empty/nullable here. sanitizeManualProfile maps
+// them back to the looser manualProfileSchema shape.
+const extractionLinkSchema = z.object({
+  label: z.string().trim().max(100),
+  url: z.string().trim().max(500),
+});
+
+const extractionSkillItemSchema = skillItemSchema.extend({
+  yearsOfExperience: z.number().int().min(0).max(80).nullable(),
+});
+
+const extractPersonalPreferencesEducationOutputSchema = z.object({
+  personalInfo: manualProfileSchema.shape.personalInfo.extend({
+    links: z.array(extractionLinkSchema).optional().default([]),
+  }),
+  preferences: manualProfileSchema.shape.preferences,
+  education: manualProfileSchema.shape.education,
+});
 const extractWorkExperienceProjectsOutputSchema = manualProfileSchema.pick({
   workExperience: true,
   projects: true,
 });
-const extractSkillsCertificationsOutputSchema = manualProfileSchema.pick({
-  skills: true,
-  certifications: true,
+const extractSkillsCertificationsOutputSchema = z.object({
+  skills: z.array(extractionSkillItemSchema).optional().default([]),
+  certifications: manualProfileSchema.shape.certifications,
 });
 
 const GraphState = Annotation.Root({
