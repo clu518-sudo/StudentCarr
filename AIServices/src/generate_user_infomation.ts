@@ -12,6 +12,7 @@ import { config as loadEnv } from "dotenv";
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
+import { reasoningSafeChatOpenAIOptions } from "./lib/openaiReasoning.js";
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = Number(process.env.LANGGRAPH_PORT || 10002);
@@ -525,6 +526,7 @@ const buildModel = (llmSettings?: LlmSettings) => {
     timeout: OPENAI_TIMEOUT_MS,
     maxRetries: OPENAI_MAX_RETRIES,
     configuration: baseUrl ? { baseURL: baseUrl } : undefined,
+    ...reasoningSafeChatOpenAIOptions(model),
   });
 };
 

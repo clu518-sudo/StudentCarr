@@ -3,6 +3,7 @@ import { createAgent } from "langchain";
 import { HumanMessage, AIMessage } from "@langchain/core/messages";
 import { z } from "zod";
 import { getMcpTools } from "./mcpClient.service.js";
+import { reasoningSafeChatOpenAIOptions } from "../lib/openaiReasoning.js";
 
 const OPENAI_TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 45000);
 const OPENAI_MAX_RETRIES = Number(process.env.OPENAI_MAX_RETRIES || 2);
@@ -75,17 +76,20 @@ const buildMessages = (history: ChatHistory, message: string) => [
   new HumanMessage(message)
 ];
 
-const buildModel = (llmSettings: LlmSettings) =>
-  new ChatOpenAI({
+const buildModel = (llmSettings: LlmSettings) => {
+  const model = llmSettings.model || DEFAULT_MODEL;
+  return new ChatOpenAI({
     apiKey: llmSettings.apiKey,
-    model: llmSettings.model || DEFAULT_MODEL,
+    model,
     temperature: 0.3,
     timeout: OPENAI_TIMEOUT_MS,
     maxRetries: OPENAI_MAX_RETRIES,
     configuration: llmSettings.baseUrl
       ? { baseURL: llmSettings.baseUrl }
       : undefined,
+    ...reasoningSafeChatOpenAIOptions(model),
   });
+};
 
 // Rebuilt per turn (not cached) since credentials vary per user/request.
 const buildAgent = (

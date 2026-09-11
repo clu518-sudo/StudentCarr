@@ -2,6 +2,7 @@ import { google, gmail_v1 } from "googleapis";
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
+import { reasoningSafeChatOpenAIOptions } from "./lib/openaiReasoning.js";
 
 const OPENAI_MODEL =
   process.env.OPENAI_MODEL || process.env.MODEL || "gpt-4.1-mini";
@@ -283,6 +284,7 @@ const buildModel = () => {
     timeout: OPENAI_TIMEOUT_MS,
     maxRetries: OPENAI_MAX_RETRIES,
     configuration: OPENAI_BASE_URL ? { baseURL: OPENAI_BASE_URL } : undefined,
+    ...reasoningSafeChatOpenAIOptions(OPENAI_MODEL),
   });
 };
 
