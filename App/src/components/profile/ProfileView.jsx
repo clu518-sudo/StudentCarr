@@ -284,7 +284,7 @@ const ProfileView = () => {
   const canGenerateManualProfile = documents.length > 0;
 
   return (
-    <div className="space-y-6">
+    <div className="sc-profile-view space-y-6">
       <div className="bg-gradient-to-r from-primary-500 to-primary-600 rounded-lg p-6 text-white shadow-sm">
         <h1 className="text-2xl font-bold mb-2">Profile Management</h1>
         <p className="text-primary-100">
@@ -307,10 +307,11 @@ const ProfileView = () => {
 
       <div className="card">
         <div className="border-b border-gray-200 mb-6">
-          <nav className="-mb-px flex space-x-6">
+          <nav className="sc-mode-tabs -mb-px flex" aria-label="Profile editing mode">
             <button
               type="button"
               onClick={() => setActiveMode("manual")}
+              aria-pressed={activeMode === "manual"}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeMode === "manual"
                   ? "border-primary-500 text-primary-600"
@@ -322,6 +323,7 @@ const ProfileView = () => {
             <button
               type="button"
               onClick={() => setActiveMode("documents")}
+              aria-pressed={activeMode === "documents"}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeMode === "documents"
                   ? "border-primary-500 text-primary-600"

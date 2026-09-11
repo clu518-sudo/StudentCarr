@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import AuthShell from '../auth/AuthShell';
 
 // Admin login gate. Reachable only by typing /admin directly — nothing in
 // the app links here, the same way McpSetupView is deliberately unrouted.
@@ -58,10 +59,10 @@ const AdminLoginView = () => {
   };
 
   return (
-    <div className="sc-auth sc-dark">
-      <div className="max-w-md w-full space-y-8 p-8">
-        <div className="card">
+    <AuthShell eyebrow="Administrator access">
+        <div className="card sc-auth-card">
           <div className="text-center mb-8">
+            <p className="sc-auth-kicker">Restricted area</p>
             <h2 className="text-3xl font-bold text-gray-900 mb-2">
               Administrator Sign In
             </h2>
@@ -116,8 +117,7 @@ const AdminLoginView = () => {
             </button>
           </form>
         </div>
-      </div>
-    </div>
+    </AuthShell>
   );
 };
 

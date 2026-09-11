@@ -3,6 +3,7 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useAuth } from "../../contexts/AuthContext";
 import { chatApi } from "../../lib/apiClient";
+import InterfaceIcon from "../common/InterfaceIcon";
 
 // Persistent right-side career assistant panel.
 //
@@ -14,12 +15,12 @@ import { chatApi } from "../../lib/apiClient";
 const QUICK_ACTIONS = [
   {
     id: "profile-summary",
-    label: "summarize my profile and recommend some relevant job types",
+    label: "Explore roles for my profile",
     prompt: "summarize my profile and recommend some relevant job types",
   },
   {
     id: "application-progress",
-    label: "How are my applications progressing?",
+    label: "Review my application progress",
     prompt: "How are my applications progressing?",
   },
 ];
@@ -365,7 +366,7 @@ const CareerChatbot = ({
                   : "This demo allows clearing chat history only once"
               }
             >
-              🗑
+              <InterfaceIcon name="trash" />
             </button>
             <button
               type="button"
@@ -374,7 +375,7 @@ const CareerChatbot = ({
               aria-label={collapsed ? "Expand assistant" : "Collapse assistant to the side"}
               title={collapsed ? "Expand assistant" : "Collapse to the side"}
             >
-              {collapsed ? "«" : "»"}
+              <InterfaceIcon name="chevron" className={collapsed ? 'sc-rotate-back' : ''} />
             </button>
             <button
               type="button"
@@ -411,7 +412,7 @@ const CareerChatbot = ({
               {message.role === "assistant" &&
               !message.text &&
               !message.toolActivity?.length ? (
-                <span className="sc-typing">Thinking…</span>
+                <span className="sc-typing" role="status"><span className="sc-thinking-dots" aria-hidden="true"><i /><i /><i /></span> Thinking…</span>
               ) : (
                 <Markdown remarkPlugins={[remarkGfm]}>{message.text}</Markdown>
               )}
@@ -437,9 +438,10 @@ const CareerChatbot = ({
               type="button"
               className="sc-chip"
               disabled={isThinking || used || (!limits.unlimited && limits.remaining <= 0)}
-              title={used ? "Already used in this conversation" : undefined}
+              title={used ? "Already used in this conversation" : action.prompt}
               onClick={() => handleQuickAction(action)}
             >
+              <InterfaceIcon name={used ? 'check' : 'arrow'} />
               {action.label}
             </button>
           );
@@ -465,8 +467,9 @@ const CareerChatbot = ({
             className="sc-send"
             disabled={!input.trim() || isThinking || (!limits.unlimited && limits.remaining <= 0)}
             aria-label="Send message"
+            aria-busy={isThinking}
           >
-            ➤
+            <InterfaceIcon name={isThinking ? 'sync' : 'send'} className={isThinking ? 'sc-spin' : ''} />
           </button>
         </div>
       </form>

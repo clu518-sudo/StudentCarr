@@ -3,6 +3,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLogin } from '../../hooks/useLogin';
 import { demoAccountApi } from '../../lib/apiClient';
+import AuthShell from './AuthShell';
 
 // Login View - Pure UI component with no business logic
 //
@@ -62,15 +63,15 @@ const LoginView = () => {
   };
 
   return (
-    <div className="sc-auth sc-dark">
-      <div className="max-w-md w-full space-y-8 p-8">
-        <div className="card">
+    <AuthShell>
+        <div className="card sc-auth-card">
           <div className="text-center mb-8">
+            <p className="sc-auth-kicker">Welcome back</p>
             <h2 className="text-3xl font-bold text-gray-900 mb-2">
-              Welcome Back
+              Sign in to your account
             </h2>
             <p className="text-gray-600">
-              Sign in to your Student Career account
+              Continue building momentum toward your next role.
             </p>
           </div>
 
@@ -210,8 +211,7 @@ const LoginView = () => {
             )}
           </div>
         </div>
-      </div>
-    </div>
+    </AuthShell>
   );
 };
 

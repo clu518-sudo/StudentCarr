@@ -1,0 +1,76 @@
+/* Native cursor images stay precise; text, resize, drag, and disabled cursors
+   retain their meaning. No cursor is ever hidden behind a JavaScript follower. */
+@media (hover: hover) and (pointer: fine) and (forced-colors: none) {
+  .sc-shell, .sc-auth {
+    cursor: url('../assets/cursors/arrow.svg') 3 3, auto;
+  }
+
+  :where(.sc-shell, .sc-auth) :is(button, a[href], summary, [role="button"], [role="tab"], [role="checkbox"], input[type="checkbox"], input[type="radio"], input[type="button"], input[type="submit"], input[type="reset"], label[for]):not(:disabled):not([aria-disabled="true"]) {
+    cursor: url('../assets/cursors/hand.svg') 11 3, pointer;
+  }
+
+  :where(.sc-shell, .sc-auth) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="range"]):not([type="color"]):not([type="file"]), textarea, [contenteditable]:not([contenteditable="false"])):not(:disabled):not([aria-disabled="true"]) {
+    cursor: text;
+  }
+
+  :where(.sc-shell, .sc-auth) :is(select, input[type="range"], input[type="color"], input[type="file"]) {
+    cursor: auto;
+  }
+
+  :where(.sc-shell, .sc-auth) :is(:disabled, [aria-disabled="true"], label:has(:disabled)) {
+    cursor: not-allowed;
+  }
+
+  /* Strengthen hover affordance without making informational cards look clickable. */
+  .sc-sidebar .sc-nav-item:not(.is-active):hover {
+    border-color: #94baff65;
+    background: linear-gradient(105deg, #243e646b, #25294250);
+    box-shadow: inset 0 1px 0 #d3e3ff0a;
+  }
+
+  :where(.sc-shell, .sc-auth) :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select):not(:disabled):not(:focus):hover {
+    border-color: #82a7d986;
+  }
+}
+
+.sc-pointer-effects {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483646;
+  pointer-events: none;
+  user-select: none;
+  overflow: hidden;
+  display: none;
+}
+.sc-pointer-effects * { pointer-events: none; }
+.sc-pointer-halo { position: absolute; top: 0; left: 0; width: 0; height: 0; }
+.sc-pointer-halo::after {
+  content: '';
+  position: absolute;
+  left: -17px;
+  top: -17px;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #b6cfff99;
+  border-radius: 50%;
+  background: #95baff0a;
+  box-shadow: 0 0 0 1px #0b183d45, 0 0 12px #82aaff1a;
+  opacity: 0;
+  transform: scale(.8);
+  transition: opacity 100ms ease, transform 140ms ease, border-color 100ms ease;
+}
+.sc-pointer-effects[data-hover="true"] .sc-pointer-halo::after { opacity: 1; transform: scale(1); }
+.sc-pointer-effects[data-pressed="true"] .sc-pointer-halo::after { transform: scale(.72); border-color: #edf4ff; }
+.sc-pointer-pulse {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  border: 1.5px solid #c3d7ff;
+  border-radius: 50%;
+  background: radial-gradient(circle, transparent 50%, #9abaff20);
+  opacity: 0;
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) and (forced-colors: none) {
+  .sc-pointer-effects { display: block; }
+}

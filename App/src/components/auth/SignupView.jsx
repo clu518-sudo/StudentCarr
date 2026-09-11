@@ -2,6 +2,7 @@ import React from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { useSignup } from "../../hooks/useSignup";
+import AuthShell from "./AuthShell";
 
 const SignupView = () => {
   const { isAuthenticated } = useAuth();
@@ -12,10 +13,10 @@ const SignupView = () => {
   }
 
   return (
-    <div className="sc-auth sc-dark">
-      <div className="max-w-md w-full space-y-8 p-8">
-        <div className="card">
+    <AuthShell>
+        <div className="card sc-auth-card">
           <div className="text-center mb-8">
+            <p className="sc-auth-kicker">Get started</p>
             <h2 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h2>
             <p className="text-gray-600">Sign up for your Student Career account</p>
           </div>
@@ -115,8 +116,7 @@ const SignupView = () => {
             </p>
           </div>
         </div>
-      </div>
-    </div>
+    </AuthShell>
   );
 };
 

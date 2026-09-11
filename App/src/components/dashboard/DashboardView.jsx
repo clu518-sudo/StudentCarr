@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProfile } from '../../contexts/ProfileContext';
 import { useProgress } from '../../contexts/ProgressContext';
+import InterfaceIcon from '../common/InterfaceIcon';
 
 // Redesigned dashboard matching the StudentCarr reference: hero, metric cards,
 // a "next actions" list, and a selected-detail panel. Metrics use real
@@ -30,21 +31,25 @@ const DashboardView = () => {
   const metrics = [
     {
       label: 'Applications',
+      icon: 'applications',
       value: applicationsCount,
       hint: gmailConnected ? 'Tracked from Gmail' : 'Connect Gmail to track',
     },
     {
       label: 'Job matches',
+      icon: 'jobs',
       value: '—',
       hint: 'Run job discovery',
     },
     {
       label: 'Skills',
+      icon: 'skills',
       value: skillsCount,
       hint: skillsCount ? 'On your profile' : 'Add skills to your profile',
     },
     {
       label: 'Projects',
+      icon: 'projects',
       value: projectsCount,
       hint: projectsCount ? 'Strengthen with metrics' : 'Add projects',
     },
@@ -104,15 +109,14 @@ const DashboardView = () => {
   const selectedAction =
     actions.find((action) => action.id === selectedActionId) || actions[0];
 
-  const dotEmoji = { yellow: '🟡', blue: '🔵', green: '🟢', red: '🔴' };
-
   return (
-    <div>
-      <div className="sc-topbar" style={{ position: 'static', border: 0, padding: 0, background: 'transparent', backdropFilter: 'none', marginBottom: 20 }}>
-        <div className="sc-page-head" style={{ marginBottom: 0 }}>
+    <div className="sc-dashboard">
+      <div className="sc-dashboard-heading">
+        <div className="sc-page-head">
+          <p className="sc-eyebrow">Your overview</p>
           <h1>Dashboard</h1>
           <p className="sc-subtitle">
-            Your central workspace to manage your career journey.
+            A little progress today. More possibilities tomorrow.
           </p>
         </div>
         <button
@@ -120,18 +124,21 @@ const DashboardView = () => {
           className="sc-btn"
           onClick={handleSyncMailbox}
           disabled={!gmailConnected || isSyncRunning}
+          aria-busy={isSyncRunning}
           title={gmailConnected ? 'Sync progress from Gmail' : 'Connect Gmail in Progress to enable syncing'}
         >
-          {isSyncRunning ? '↻ Syncing…' : '↻ Sync progress'}
+          <InterfaceIcon name="sync" className={isSyncRunning ? 'sc-spin' : ''} />
+          {isSyncRunning ? 'Syncing…' : 'Sync progress'}
         </button>
       </div>
 
       <section className="sc-hero">
         <div>
-          <h2>Today’s career command center</h2>
+          <p className="sc-hero-eyebrow">Small steps. Real momentum.</p>
+          <h2>Make your next move.</h2>
           <p>
-            The dashboard stays visual and structured while the assistant guides
-            actions on the right.
+            Build your story, follow your applications, and get ready for
+            what comes next. Your career starts here.
           </p>
         </div>
         <div className="sc-hero-art" aria-hidden="true">
@@ -146,8 +153,11 @@ const DashboardView = () => {
 
       <section className="sc-metrics">
         {metrics.map((metric) => (
-          <div key={metric.label} className="sc-card sc-metric">
-            <div className="sc-metric-label">{metric.label}</div>
+          <div key={metric.label} className={`sc-card sc-metric sc-metric-${metric.icon}`}>
+            <div className="sc-metric-heading">
+              <div className="sc-metric-label">{metric.label}</div>
+              <span className="sc-metric-icon"><InterfaceIcon name={metric.icon} /></span>
+            </div>
             <div className="sc-metric-value">{metric.value}</div>
             <small>{metric.hint}</small>
           </div>
@@ -155,8 +165,12 @@ const DashboardView = () => {
       </section>
 
       <section className="sc-workspace-grid">
-        <div className="sc-card">
-          <h3>Your next actions</h3>
+        <div className="sc-card sc-actions-card">
+          <div className="sc-section-heading">
+            <h3>Your next actions</h3>
+            <span className="sc-count-badge">{actions.length} to explore</span>
+          </div>
+          <p className="sc-section-hint">Choose a focus to see your next step.</p>
           {actions.map((action) => {
             const isSelected = action.id === selectedActionId;
             return (
@@ -165,42 +179,49 @@ const DashboardView = () => {
                 type="button"
                 className={`sc-task${isSelected ? ' is-selected' : ''}`}
                 onClick={() => setSelectedActionId(action.id)}
+                aria-pressed={isSelected}
+                aria-controls="dashboard-action-detail"
               >
-                <span className={`sc-dot ${action.dot}`} />
+                <span className={`sc-task-marker ${action.dot}`} aria-hidden="true">
+                  {isSelected ? <InterfaceIcon name="check" /> : <span className={`sc-dot ${action.dot}`} />}
+                </span>
                 <span>
                   <span className="sc-task-title" style={{ display: 'block' }}>
                     {action.title}
                   </span>
                   <span className="sc-task-meta">{action.meta}</span>
                 </span>
-                <span className="sc-chevron">›</span>
+                <InterfaceIcon name="chevron" className="sc-chevron" />
               </button>
             );
           })}
         </div>
 
-        <div className="sc-card">
-          <h3>Selected detail</h3>
-          <div className="sc-task-title">
-            {dotEmoji[selectedAction.dot]} {selectedAction.title}
-          </div>
-          <p className="sc-detail-copy">{selectedAction.detail}</p>
-          <div className="sc-progress-row">
-            <div className="sc-progress">
-              <span style={{ width: `${selectedAction.progress}%` }} />
+        <div className="sc-card sc-action-detail" id="dashboard-action-detail">
+          <p className="sc-eyebrow">Your selected focus</p>
+          <div aria-live="polite" aria-atomic="true">
+            <div key={selectedAction.id} className="sc-detail-transition">
+              <h3 className="sc-detail-title">{selectedAction.title}</h3>
+              <p className="sc-detail-copy">{selectedAction.detail}</p>
+              <div className="sc-progress-row">
+                <div className="sc-progress">
+                  <span style={{ width: `${selectedAction.progress}%` }} />
+                </div>
+                <strong>{selectedAction.progress}%</strong>
+              </div>
+              <p className="sc-detail-note">
+                The assistant can draft and explain, but actions like sending still
+                happen after your confirmation.
+              </p>
             </div>
-            <strong>{selectedAction.progress}%</strong>
           </div>
-          <p className="sc-detail-note">
-            The assistant can draft and explain, but actions like sending still
-            happen after your confirmation.
-          </p>
           <button
             type="button"
             className="sc-btn sc-btn-primary sc-full"
             onClick={() => navigate(selectedAction.to)}
           >
             {selectedAction.cta}
+            <InterfaceIcon name="arrow" />
           </button>
         </div>
       </section>
