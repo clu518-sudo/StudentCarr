@@ -4,11 +4,10 @@ import { useAuth } from '../../contexts/AuthContext';
 import { getSectionMeta } from '../../lib/navigation';
 
 // Workspace top bar for the dark app shell: the user identity chip and logout.
-// Adds a chat toggle used to open the assistant drawer on smaller screens.
 // The MCP / Claude Desktop setup entry point was unlinked here per
 // MCP_CHATBOT plan §10 (retired in favor of the in-app chatbot) — the route
 // and backend are kept, just no longer reachable from navigation.
-const Header = ({ onToggleChat = () => {} }) => {
+const Header = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const sectionMeta = getSectionMeta(location.pathname);
@@ -37,17 +36,6 @@ const Header = ({ onToggleChat = () => {} }) => {
           Logout
         </button>
 
-        {/* Opens the career chatbot drawer on tablet/mobile widths. */}
-        <button
-          type="button"
-          className="sc-icon-btn sc-chat-toggle"
-          onClick={onToggleChat}
-          aria-label="Toggle career assistant"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-          </svg>
-        </button>
       </div>
     </header>
   );

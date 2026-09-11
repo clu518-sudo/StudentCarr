@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 import { useAuth } from "../../contexts/AuthContext";
 import { chatApi } from "../../lib/apiClient";
 import InterfaceIcon from "../common/InterfaceIcon";
+import FloatingChatPanel from "./FloatingChatPanel";
 
 // Persistent right-side career assistant panel.
 //
@@ -55,8 +56,7 @@ const nextId = () => {
 const CareerChatbot = ({
   open = false,
   onClose = () => {},
-  collapsed = false,
-  onToggleCollapse = () => {},
+  openerRef,
 }) => {
   const { accessToken } = useAuth();
   const [messages, setMessages] = useState(() => [
@@ -327,68 +327,27 @@ const CareerChatbot = ({
   };
 
   return (
-    <aside
-      className={`sc-chat${open ? " is-open" : ""}${collapsed ? " is-collapsed" : ""}`}
-      aria-label="Career chatbot"
+    <FloatingChatPanel
+      open={open}
+      onClose={onClose}
+      openerRef={openerRef}
+      headerActions={
+        <button
+          type="button"
+          className="sc-chat-delete"
+          onClick={handleClearHistory}
+          disabled={isThinking || !limits.canClearHistory}
+          aria-label="Delete saved chat history"
+          title={
+            limits.canClearHistory
+              ? "Delete saved chat history"
+              : "This demo allows clearing chat history only once"
+          }
+        >
+          <InterfaceIcon name="trash" />
+        </button>
+      }
     >
-      <div className="sc-chat-head">
-        <div className="sc-chat-title">
-          <span className="sc-bot-icon" aria-hidden="true">
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-              />
-            </svg>
-          </span>
-          <span className="sc-chat-title-label">Career Chatbot</span>
-          <div className="sc-chat-title-actions">
-            {/* .sc-chat-delete mirrors .sc-chat-fold's look but isn't
-                subject to the workspace-collapsed pointer-events: none
-                rule that targets .sc-chat-fold — this button must stay
-                clickable whenever the workspace is folded. */}
-            <button
-              type="button"
-              className="sc-chat-delete"
-              onClick={handleClearHistory}
-              disabled={isThinking || !limits.canClearHistory}
-              aria-label="Delete saved chat history"
-              title={
-                limits.canClearHistory
-                  ? "Delete saved chat history"
-                  : "This demo allows clearing chat history only once"
-              }
-            >
-              <InterfaceIcon name="trash" />
-            </button>
-            <button
-              type="button"
-              className="sc-chat-fold"
-              onClick={onToggleCollapse}
-              aria-label={collapsed ? "Expand assistant" : "Collapse assistant to the side"}
-              title={collapsed ? "Expand assistant" : "Collapse to the side"}
-            >
-              <InterfaceIcon name="chevron" className={collapsed ? 'sc-rotate-back' : ''} />
-            </button>
-            <button
-              type="button"
-              className="sc-chat-close"
-              onClick={onClose}
-              aria-label="Close assistant"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-        <p>AI assistant for your job search.</p>
-      </div>
 
       <div className="sc-messages" ref={messagesRef}>
         {messages.map((message) => (
@@ -473,7 +432,7 @@ const CareerChatbot = ({
           </button>
         </div>
       </form>
-    </aside>
+    </FloatingChatPanel>
   );
 };
 

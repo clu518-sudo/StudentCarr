@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import "./index.css";
 import "./styles/interface-polish.css";
 import "./styles/pointer-effects.css";
+import "./styles/floating-chat.css";
 import App from "./App";
 import PointerEffects from "./components/common/PointerEffects.jsx";
 

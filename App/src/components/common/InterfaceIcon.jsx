@@ -12,6 +12,10 @@ const paths = {
   trash: 'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7',
   send: 'm5 12 14-8-5 16-3-6-6-2Zm6 2 8-10',
   chevron: 'm9 5 7 7-7 7',
+  chat: 'M8 10h.01M12 10h.01M16 10h.01M9 17H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-5l-5 4v-4Z',
+  expand: 'M8 3H3v5m0-5 6 6M16 3h5v5m0-5-6 6M8 21H3v-5m0 5 6-6m7 6h5v-5m0 5-6-6',
+  restore: 'M3 8h5V3m0 5L2 2m19 6h-5V3m0 5 6-6M3 16h5v5m0-5-6 6m19-6h-5v5m0-5 6 6',
+  minimize: 'M5 12h14',
 };
 
 const InterfaceIcon = ({ name, className = '' }) => (
