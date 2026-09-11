@@ -12,7 +12,7 @@
   bottom: 16px;
   z-index: 50;
   width: min(var(--sc-chat-width, 420px), calc(100% - 32px));
-  height: min(720px, calc(100dvh - 104px));
+  height: min(800px, calc(100dvh - 80px));
   min-height: 0;
   border: 1px solid #55749c80;
   border-radius: 20px;
@@ -38,22 +38,35 @@
 .sc-chat.sc-chat-floating:focus { outline: none; }
 .sc-chat-floating .sc-chat-head {
   flex-shrink: 0;
-  padding: 16px;
+  padding: 10px 12px;
   border-radius: 19px 19px 0 0;
   background: linear-gradient(125deg, #142b48, #131f35);
 }
-.sc-chat-floating .sc-chat-title { gap: 8px; font-size: 15px; }
+.sc-chat-floating .sc-chat-title { gap: 7px; font-size: 14px; margin-bottom: 2px; }
+.sc-chat-floating .sc-bot-icon { width: 28px; height: 28px; border-radius: 8px; }
+.sc-chat-floating .sc-bot-icon svg { width: 17px; height: 17px; }
 .sc-chat-floating .sc-chat-title-actions { flex-direction: row; gap: 4px; }
-.sc-chat-floating .sc-chat-head p { margin-left: 44px; font-size: 12px; }
-.sc-chat-floating .sc-messages { min-height: 0; overscroll-behavior: contain; }
-.sc-chat-floating .sc-message { max-width: 94%; overflow-wrap: anywhere; }
+.sc-chat-floating .sc-chat-head p { margin-left: 35px; font-size: 11px; line-height: 1.4; }
+.sc-chat-floating .sc-messages { min-height: 0; padding: 12px; gap: 10px; overscroll-behavior: contain; }
+.sc-chat-floating .sc-message { max-width: 96%; padding: 10px 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .sc-chat-floating :is(.sc-composer, .sc-chat-limit-note, .sc-quick-actions) { flex-shrink: 0; }
-.sc-chat-floating .sc-composer { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+/* Conversation first: short, wrapping actions and a single-line composer.
+   Keep message text readable; recover height from the surrounding controls. */
+.sc-chat-floating .sc-chat-limit-note { padding: 2px 12px 4px; line-height: 1.4; }
+.sc-chat-floating .sc-quick-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 12px 8px; }
+.sc-chat-floating .sc-chip { min-height: 30px; max-width: 100%; padding: 5px 8px; gap: 5px; border-radius: 8px; font-size: 12px; line-height: 1.4; }
+.sc-chat-floating .sc-chip svg { width: 13px; height: 13px; }
+.sc-chat-floating .sc-composer { padding: 8px 12px max(10px, env(safe-area-inset-bottom)); }
+.sc-chat-floating .sc-input-wrap { min-height: 38px; padding: 3px; gap: 4px; border-radius: 10px; }
+.sc-chat-floating .sc-input-wrap input { min-height: 30px; padding: 3px 7px; font-size: 13px; text-align: left; }
+.sc-chat-floating .sc-input-wrap input::placeholder { font-size: 12px; }
+.sc-chat-floating .sc-send { width: 30px; height: 30px; min-height: 30px; border-radius: 7px; }
+.sc-chat-floating .sc-send svg { width: 16px; height: 16px; }
 .sc-chat-floating :is(.sc-chat-delete, .sc-chat-size-toggle, .sc-chat-minimize) {
   display: inline-grid;
   place-items: center;
   width: 32px;
-  height: 36px;
+  height: 30px;
   flex-shrink: 0;
   border: 1px solid #5a779c45;
   border-radius: 9px;
@@ -137,6 +150,12 @@ html.sc-chat-resizing, html.sc-chat-resizing * { cursor: ew-resize !important; u
   .sc-chat-floating .sc-chat-head p { display: none; }
   .sc-chat-floating .sc-quick-actions { padding-block: 6px; gap: 4px; }
   .sc-chat-floating .sc-chip { padding-block: 7px; }
+}
+/* Preserve comfortable touch targets without restoring the stacked actions. */
+@media (pointer: coarse) {
+  .sc-chat-floating :is(.sc-chip, .sc-chat-delete, .sc-chat-size-toggle, .sc-chat-minimize, .sc-send) { min-height: 44px; }
+  .sc-chat-floating :is(.sc-chat-delete, .sc-chat-size-toggle, .sc-chat-minimize, .sc-send) { width: 44px; }
+  .sc-chat-floating .sc-input-wrap input { font-size: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .sc-chat.sc-chat-floating, .sc-chat-launcher, .sc-chat-resize-handle span { transition: none; }

@@ -16,12 +16,12 @@ import FloatingChatPanel from "./FloatingChatPanel";
 const QUICK_ACTIONS = [
   {
     id: "profile-summary",
-    label: "Explore roles for my profile",
+    label: "Explore roles",
     prompt: "summarize my profile and recommend some relevant job types",
   },
   {
     id: "application-progress",
-    label: "Review my application progress",
+    label: "Application progress",
     prompt: "How are my applications progressing?",
   },
 ];

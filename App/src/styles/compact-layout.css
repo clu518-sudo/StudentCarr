@@ -1,0 +1,79 @@
+/* Density comes from spacing, not page scaling: native zoom, floating panels,
+   pointer coordinates, and rich-text document formatting remain unchanged. */
+.sc-shell { --sc-sidebar: 208px; }
+.sc-sidebar { padding: 14px 10px 12px; }
+.sc-brand { font-size: 18px; gap: 8px; margin-bottom: 16px; }
+.sc-logo { width: 34px; height: 34px; border-radius: 10px; font-size: 12px; }
+.sc-nav { gap: 3px; }
+.sc-nav-item { min-height: 42px; padding: 7px 9px; gap: 9px; border-radius: 9px; }
+.sc-nav-label { font-size: 13px; }
+.sc-sidebar .sc-nav-icon:has(.sc-sidebar-artwork) { width: 26px; height: 26px; }
+.sc-sidebar-artwork { width: 28px; height: 28px; }
+.sc-subnav { margin-left: 28px; }
+.sc-subnav-item { min-height: 32px; padding-block: 5px; }
+.sc-account { margin-top: 12px; padding: 12px 4px 0; gap: 8px; }
+.sc-account .sc-avatar { width: 32px; height: 32px; }
+.sc-topbar { min-height: 56px; padding: 8px 20px; }
+.sc-topbar-title { font-size: 14px; }
+.sc-topbar-actions { gap: 10px; }
+.sc-workspace { padding: 20px 22px 28px; }
+.sc-shell :is(.sc-btn, .btn-primary, .btn-secondary) { min-height: 36px; padding: 7px 11px; font-size: 13px; }
+.sc-page-head { margin-bottom: 14px; }
+.sc-page-head h1 { font-size: clamp(24px, 2vw, 28px); }
+.sc-dashboard-heading { gap: 12px; margin-bottom: 16px; }
+.sc-dashboard .sc-subtitle { font-size: 13px; }
+.sc-eyebrow { margin-bottom: 6px; }
+.sc-dashboard .sc-hero { min-height: 130px; padding: 18px 22px; margin-bottom: 14px; border-radius: 14px; }
+.sc-dashboard .sc-hero h2 { font-size: 26px; margin-bottom: 8px; }
+.sc-dashboard .sc-hero p { font-size: 13px; max-width: 58ch; }
+.sc-dashboard .sc-hero .sc-hero-eyebrow { margin-bottom: 6px; }
+.sc-dashboard .sc-hero-art { height: 92px; }
+.sc-dashboard .sc-metrics { gap: 10px; margin-bottom: 14px; }
+.sc-dashboard .sc-metric { min-height: 108px; padding: 12px 14px; border-radius: 12px; }
+.sc-dashboard .sc-metric-value { font-size: 26px; margin: 8px 0 6px; }
+.sc-metric-icon { width: 24px; height: 24px; }
+.sc-dashboard .sc-workspace-grid { gap: 12px; }
+.sc-workspace :is(.sc-card, .card) { padding: 16px; border-radius: 12px; }
+.sc-dashboard .sc-metric { padding: 12px 14px; }
+.sc-section-heading h3 { font-size: 16px; }
+.sc-section-hint { margin-bottom: 10px; }
+.sc-dashboard .sc-task, .sc-dashboard .sc-task.is-selected { min-height: 60px; padding: 8px; margin-top: 3px; gap: 8px; }
+.sc-dashboard .sc-task-meta { margin-top: 2px; }
+.sc-action-detail .sc-eyebrow { margin-bottom: 12px; }
+.sc-card .sc-detail-title { font-size: 17px; margin-bottom: 8px; }
+.sc-action-detail .sc-progress-row { margin: 12px 0; }
+.sc-detail-transition { padding-bottom: 12px; }
+
+/* Shared page chrome and form spacing; leave editor contents and tables alone. */
+.sc-workspace > .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 16px; }
+.sc-workspace > div > .bg-gradient-to-r { padding: 18px 20px; border-radius: 12px; }
+.sc-workspace > div > .bg-gradient-to-r h1 { font-size: 23px; line-height: 1.3; }
+.sc-workspace > div > .bg-gradient-to-r p { font-size: 14px; }
+.sc-profile-view .sc-mode-tabs button { min-height: 36px; padding: 7px 10px; font-size: 13px; }
+.profile-manual-form > section + section { margin-top: 20px; padding-top: 16px; }
+.profile-manual-form h2 { font-size: 16px; margin-bottom: 12px; }
+.profile-manual-form .gap-4 { gap: 12px; }
+.sc-workspace.sc-dark input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]),
+.sc-workspace.sc-dark select { min-height: 36px; padding-block: 6px; }
+.sc-chat-launcher { width: 48px; height: 48px; border-radius: 15px; }
+.sc-chat-launcher svg { width: 22px; height: 22px; }
+
+@media (max-width: 1180px) and (min-width: 641px) {
+  .sc-shell { --sc-sidebar: 72px; }
+  .sc-nav-item { padding-inline: 0; }
+}
+@media (max-width: 640px) {
+  .sc-sidebar { padding: 5px 8px; }
+  .sc-nav-item { min-height: 44px; padding: 6px 9px; }
+  .sc-topbar { min-height: 54px; padding: 6px 14px; }
+  .sc-workspace { padding: 16px 14px 24px; }
+  .sc-dashboard-heading { gap: 10px; }
+  .sc-dashboard .sc-hero { padding: 16px; }
+  .sc-dashboard .sc-hero h2 { font-size: 24px; }
+}
+@media (pointer: coarse) {
+  .sc-shell :is(.sc-btn, .btn-primary, .btn-secondary),
+  .sc-profile-view .sc-mode-tabs button,
+  .sc-workspace.sc-dark input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]),
+  .sc-workspace.sc-dark select { min-height: 44px; }
+}
