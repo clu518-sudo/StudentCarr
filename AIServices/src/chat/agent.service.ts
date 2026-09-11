@@ -76,6 +76,19 @@ const buildMessages = (history: ChatHistory, message: string) => [
   new HumanMessage(message)
 ];
 
+// Chat Completions yields string content; the Responses API (used for
+// reasoning models) yields an array of blocks, including reasoning blocks
+// that must not leak into the reply.
+const contentText = (content: AIMessage["content"] | undefined): string => {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .map((block) =>
+      block.type === "text" && typeof block.text === "string" ? block.text : "",
+    )
+    .join("");
+};
+
 const buildModel = (llmSettings: LlmSettings) => {
   const model = llmSettings.model || DEFAULT_MODEL;
   return new ChatOpenAI({
@@ -206,10 +219,7 @@ export const runChatTurn = async ({
   }
 
   const lastMessage = result.messages[result.messages.length - 1] as AIMessage;
-  const reply =
-    typeof lastMessage.content === "string"
-      ? lastMessage.content
-      : JSON.stringify(lastMessage.content);
+  const reply = contentText(lastMessage.content);
 
   return { reply };
 };
@@ -275,7 +285,7 @@ export const runChatTurnStream = async function* ({
         const streamEvent = next.value;
         if (streamEvent.event === "on_chat_model_stream") {
           const chunk = streamEvent.data?.chunk as AIMessage | undefined;
-          const text = typeof chunk?.content === "string" ? chunk.content : "";
+          const text = contentText(chunk?.content);
           if (text) {
             replyText += text;
             yield { event: "token", data: { text } };
